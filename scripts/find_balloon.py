@@ -7,7 +7,7 @@
 #
 #   How to use:
 #       run colour_finder.py to find the best min and max Hue, Saturation and Brightness (aka Value) levels.  Enter these into h_low, h_high, etc below
-#       run this script and hold the object in front of the camera and move it around 
+#       run this script and hold the object in front of the camera and move it around
 #       check the find_balloon.avi file to ensure the super-imposed circles accurately follow the object
 
 import sys
@@ -32,7 +32,9 @@ if not video_capture.isOpened():
 
 # Define the codec and create VideoWriter object
 #ex = -1 # will display pop-up requesting user choose the encoder
-ex = int(cv2.cv.CV_FOURCC('i','Y','U','V'))
+# MJPG seems to work on my linux box (though it is big)
+ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
+# You don't want this - this is showing layoint in the framebuffer - not codec: (cv2.cv.CV_FOURCC('i','Y','U','V'))
 video_writer = cv2.VideoWriter('find_balloon.avi', ex, 25, (img_width,img_height))
 
 # default colour filters (this is for a yellow tennis ball)
@@ -99,7 +101,7 @@ while(time() - start_time < 10):
             cv2.circle(frame,(i[0],i[1]),i[2],(0,255,0),2)
             # draw the center of the circle
             cv2.circle(frame,(i[0],i[1]),2,(0,0,255),3)
-            
+
     # uncomment line below to see image with super-imposed circles in real-time
     #cv2.imshow('frame',frame)
 
