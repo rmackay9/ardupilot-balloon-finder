@@ -20,93 +20,105 @@ import numpy as np
 img_width = 640
 img_height = 480
 
-# setup video capture
-video_capture = cv2.VideoCapture(0)
-video_capture.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,img_width)
-video_capture.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,img_height)
+def get_camera():
+    # setup video capture
+    video_capture = cv2.VideoCapture(0)
+    video_capture.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,img_width)
+    video_capture.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,img_height)
 
-# check we can connect to camera
-if not video_capture.isOpened():
-    print "failed to open camera, exiting!"
-    sys.exit(0)
+    # check we can connect to camera
+    if not video_capture.isOpened():
+        print "failed to open camera, exiting!"
+        sys.exit(0)
 
-# Define the codec and create VideoWriter object
-#ex = -1 # will display pop-up requesting user choose the encoder
-# MJPG seems to work on my linux box (though it is big)
-ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
-# You don't want this - this is showing layoint in the framebuffer - not codec: (cv2.cv.CV_FOURCC('i','Y','U','V'))
-video_writer = cv2.VideoWriter('find_balloon.avi', ex, 25, (img_width,img_height))
+    return video_capture
 
-# default colour filters (this is for a yellow tennis ball)
-h_low = 23
-h_high = 96
-s_low = 82
-s_high = 160
-v_low = 141
-v_high = 255
+def open_video_writer():
+    # Define the codec and create VideoWriter object
+    #ex = -1 # will display pop-up requesting user choose the encoder
+    # MJPG seems to work on my linux box (though it is big)
+    ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
+    video_writer = cv2.VideoWriter('find_balloon.avi', ex, 25, (img_width,img_height))
 
-# get start time
-start_time = time()
+    return video_writer
 
-# loop for 10 seconds looking for circles
-while(time() - start_time < 10):
+def main():
+    video_capture = get_camera()
+    video_writer = open_video_writer()
 
-    # Take each frame
-    _, frame = video_capture.read()
+    # default colour filters (this is for a yellow tennis ball)
+    h_low = 23
+    h_high = 96
+    s_low = 82
+    s_high = 160
+    v_low = 141
+    v_high = 255
 
-    # Convert BGR to HSV
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    # get start time
+    start_time = time()
 
-    # use trackbar positions to filter image
-    colour_low = np.array([h_low,s_low,v_low])
-    colour_high = np.array([h_high,s_high,v_high])
+    # loop for 10 seconds looking for circles
+    while(time() - start_time < 10):
 
-    # Threshold the HSV image
-    mask = cv2.inRange(hsv, colour_low, colour_high)
+        # Take each frame
+        _, frame = video_capture.read()
 
-    # blur the result
-    #mask = cv2.medianBlur(mask,9)
+        # Convert BGR to HSV
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Erode
-    erode_kernel = np.ones((3,3),np.uint8);
-    eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
+        # use trackbar positions to filter image
+        colour_low = np.array([h_low,s_low,v_low])
+        colour_high = np.array([h_high,s_high,v_high])
 
-    # dilate
-    dilate_kernel = np.ones((10,10),np.uint8);
-    dilate_img = cv2.dilate(eroded_img,dilate_kernel,iterations = 1)
+        # Threshold the HSV image
+        mask = cv2.inRange(hsv, colour_low, colour_high)
 
-    # Bitwise-AND mask and original image
-    res = cv2.bitwise_and(frame,frame, mask= dilate_img)
+        # blur the result
+        #mask = cv2.medianBlur(mask,9)
 
-    # create a grey version of the result
-    grey_res = cv2.cvtColor(res,cv2.COLOR_BGR2GRAY)
+        # Erode
+        erode_kernel = np.ones((3,3),np.uint8);
+        eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
 
-    # threshold it to a black and white image
-    #thresh_used, grey_res = cv2.threshold(grey_res,10,255,cv2.THRESH_BINARY)
+        # dilate
+        dilate_kernel = np.ones((10,10),np.uint8);
+        dilate_img = cv2.dilate(eroded_img,dilate_kernel,iterations = 1)
 
-    #grey_res = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
-    # blur it to reduce false circles
-    grey_res = cv2.medianBlur(grey_res,5)
+        # Bitwise-AND mask and original image
+        res = cv2.bitwise_and(frame,frame, mask= dilate_img)
 
-    circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
-    #circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,20)
+        # create a grey version of the result
+        grey_res = cv2.cvtColor(res,cv2.COLOR_BGR2GRAY)
 
-    # check if any circles were found
-    if not (circles is None):
-        #print(circles)
-        # draw circles around the circles
-        circles = np.uint16(np.around(circles))
-        for i in circles[0,:]:
-            # draw the outer circle
-            cv2.circle(frame,(i[0],i[1]),i[2],(0,255,0),2)
-            # draw the center of the circle
-            cv2.circle(frame,(i[0],i[1]),2,(0,0,255),3)
+        # threshold it to a black and white image
+        #thresh_used, grey_res = cv2.threshold(grey_res,10,255,cv2.THRESH_BINARY)
 
-    # uncomment line below to see image with super-imposed circles in real-time
-    #cv2.imshow('frame',frame)
+        #grey_res = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
+        # blur it to reduce false circles
+        grey_res = cv2.medianBlur(grey_res,5)
 
-    # write the flipped frame
-    video_writer.write(frame)
+        circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
+        #circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,20)
+
+        # check if any circles were found
+        if not (circles is None):
+            #print(circles)
+            # draw circles around the circles
+            circles = np.uint16(np.around(circles))
+            for i in circles[0,:]:
+                # draw the outer circle
+                cv2.circle(frame,(i[0],i[1]),i[2],(0,255,0),2)
+                # draw the center of the circle
+                cv2.circle(frame,(i[0],i[1]),2,(0,0,255),3)
+
+        # uncomment line below to see image with super-imposed circles in real-time
+        #cv2.imshow('frame',frame)
+
+        # write the flipped frame
+        video_writer.write(frame)
 
 # uncomment line below if window with real-time video was displayed
 #cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
