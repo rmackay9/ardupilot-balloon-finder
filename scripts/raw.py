@@ -1,18 +1,22 @@
 #
-# colour_finder.py - helps find the min and max Hue, Saturation and Brightness (aka Value) of a desired object
+#   raw.py - helps find the min and max Hue, Saturation and Brightness (aka Value) of a desired object
 #
-#   Start from command line using 'python colour_finder.py', select a window and press ESC at any time to quit
+#   Start from command line using 'raw.py', select a window and press ESC at any time to quit
 #
-#   4 windows will be displayed:
-#       Colour Filters : display high and low colour filters for Hue, Saturation and Brightness (aka Value)
-#       Original : displays the raw image from the camera
+#   1 window will be displayed at startup:
+#       Colour Filters : display high and low colour filters for Hue, Saturation and Brightness (aka Value) also displays the tracking results.
+#       the first 6 sliders are disabled until you set the  7th slider to OFF
+# 
+#   3 Windows will be displayed when the 7th slider is set to OFF
+#       Colour Filters : displays the raw image from the camera
 #       Mask : displays black and white mask where black parts will be removed, white parts will remain
 #       Filtered Result: Original image with Mask applied.  Only desired object should be visible
 #
 #   How to use:
 #       Start the program and hold the object in front of the camera (the object should not fill the entire screen)
 #       Increase the min and decrease the Max Hue, Saturation and Brightness trackbars so that only the desired object is shown in the Filtered Result
-#       Record the values so they can be input manually into the usb_cam_test.py script
+#       set the 7th slider to ON, to see it tracking.
+#       the 8th slider selects if only the largest circle is chosen.
 
 import cv2
 import cv2.cv
@@ -45,7 +49,14 @@ v_low = 0
 v_high = 255
 switch = 1
 num_circle = 1
-# default filter -- yellow tennis ball
+# default filter -- yellow tennis ball (Randy's default)
+h_low = 0
+h_high = 22
+s_low = 168
+s_high = 255
+v_low = 147
+v_high = 255
+#default filter -- orange paint lid (Phils Default)
 h_low = 0
 h_high = 22
 s_low = 168
@@ -111,10 +122,10 @@ while(1):
     grey_res = cv2.medianBlur(grey_res,5)
 
     if (switch == 1):
-	circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
+	    circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
     	#circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,20)
 
-  	# check if any circles were found
+  	    # check if any circles were found
     	if not (circles is None):
         	# print(circles)
         	# draw circles around the circles
@@ -155,9 +166,7 @@ while(1):
    
     cv2.imshow('Colour Filters',frame)
 
-
-    #cv2.imshow('Original',frame)
-    #cv2.imshow('Colour Filters',frame)
+    # set escape key for exit
     k = cv2.waitKey(5) & 0xFF
     if k == 27:
         break

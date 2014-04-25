@@ -1,4 +1,14 @@
-import numpy as np
+#
+#   OF.py - is a demo of using Open CV for optical Flow.
+#
+#   Start from command line using 'OF.py', select a window and press ESC at any time to quit
+#
+#   1 window will be displayed at startup:
+#       frame : displays the tracking results.
+#   How to use:
+#       Start the program and hold the object in front of the camera (the object should not fill the entire screen)
+#       Move the object, and you should see the object leaving streaks behind it.
+
 import cv2
 
 cap = cv2.VideoCapture(0)
