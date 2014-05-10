@@ -1,6 +1,7 @@
 import time
 from droneapi.lib import VehicleMode, Location
-from find_balloon import get_camera, open_video_writer
+from find_balloon import get_camera, open_video_writer, analyse_frame, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction
+from math import degrees
 
 """
 This is an early guess at a top level controller that uses the DroneAPI and OpenCV magic
@@ -57,34 +58,37 @@ class BalloonStrategy(object):
 
     def analyze_image(self):
         f = self.get_frame()
-        self.writer.write(f) # For debugging later...
-        print "FIXME - add image analysis and fancy-pants math"
 
         # FIXME - analyze the image to get a score indicating likelyhood there is a balloon and if it
         # is there the x & y position in frame of the largest balloon
-        # FIXME - check to see if the image looks like a balloon
         # FIXME - check if the balloon gets larger if we think we are approaching it
+        found_in_image, xpos, ypos, size = analyse_frame(f)
 
-        found_in_image = True # replace this with real code
-        xpos = 200
-        ypos = 300
-
+        # add artificial horizon
+        add_artificial_horizon(f, self.vehicle.attitude.roll, self.vehicle.attitude.pitch)
+            
         if found_in_image:
             vehicle_pos = self.vehicle.location
+            vehicle_attitude = self.vehicle.attitude
+
+            # convert x, y position to pitch and yaw direction (in degrees)
+            pitch_dir, yaw_dir = pos_to_direction(xpos, ypos, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw)
+            print "Balloon found at heading %f, and %f degrees up" % (yaw_dir, pitch_dir)
 
             # FIXME - do math based on current vehicle loc and the x,y frame position
-            # (Someone needs a brain that still remembers trig)
-            lat_offset = 0.1 # FIXME
-            lon_offset = 0.1
-            alt_offset = 1
+            lat_offset = 0 # FIXME
+            lon_offset = 0
+            alt_offset = 0
             target_pos = Location(vehicle_pos.lat + lat_offset, vehicle_pos.lon + lon_offset, vehicle_pos.alt + alt_offset, vehicle_pos.is_relative)
+            #print "Balloon found at %s" % target_pos
 
             # FIXME - check if vehicle altitude is too low
             # FIXME - check if we are too far from the desired flightplan
 
             self.balloon_loc = target_pos
 
-
+        # save image for debugging later
+        self.writer.write(f)
 
     def goto_balloon(self):
         dest = self.balloon_loc
