@@ -59,20 +59,25 @@ class BalloonStrategy(object):
     def analyze_image(self):
         f = self.get_frame()
 
+        # capture vehicle's roll, pitch, yaw
+        roll_in_radians = self.vehicle.attitude.roll
+        pitch_in_radians = self.vehicle.attitude.pitch
+        yaw_in_radians = self.vehicle.attitude.yaw
+
         # FIXME - analyze the image to get a score indicating likelyhood there is a balloon and if it
         # is there the x & y position in frame of the largest balloon
         # FIXME - check if the balloon gets larger if we think we are approaching it
         found_in_image, xpos, ypos, size = analyse_frame(f)
 
         # add artificial horizon
-        add_artificial_horizon(f, self.vehicle.attitude.roll, self.vehicle.attitude.pitch)
+        add_artificial_horizon(f, roll_in_radians, pitch_in_radians)
             
         if found_in_image:
             vehicle_pos = self.vehicle.location
             vehicle_attitude = self.vehicle.attitude
 
             # convert x, y position to pitch and yaw direction (in degrees)
-            pitch_dir, yaw_dir = pos_to_direction(xpos, ypos, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw)
+            pitch_dir, yaw_dir = pos_to_direction(xpos, ypos, roll_in_radians, pitch_in_radians, yaw_in_radians)
             print "Balloon found at heading %f, and %f degrees up" % (yaw_dir, pitch_dir)
 
             # FIXME - do math based on current vehicle loc and the x,y frame position
@@ -114,7 +119,7 @@ class BalloonStrategy(object):
             self.goto_balloon()
 
             # Don't suck up too much CPU, only process a new image occasionally
-            time.sleep(0.5)
+            time.sleep(0.05)
         self.camera.release()
 
 strat = BalloonStrategy()
