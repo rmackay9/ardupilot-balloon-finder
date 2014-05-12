@@ -1,6 +1,7 @@
 import time
 from droneapi.lib import VehicleMode, Location
 from find_balloon import get_camera, open_video_writer, analyse_frame, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction
+from fake_balloon import get_simulated_frame
 from math import degrees
 
 """
@@ -57,12 +58,14 @@ class BalloonStrategy(object):
         return frame
 
     def analyze_image(self):
-        f = self.get_frame()
 
         # capture vehicle's roll, pitch, yaw
         roll_in_radians = self.vehicle.attitude.roll
         pitch_in_radians = self.vehicle.attitude.pitch
         yaw_in_radians = self.vehicle.attitude.yaw
+
+        f = self.get_frame()
+        #f = get_simulated_frame((0,0,0),(10,0,0),roll_in_radians,pitch_in_radians,yaw_in_radians)
 
         # FIXME - analyze the image to get a score indicating likelyhood there is a balloon and if it
         # is there the x & y position in frame of the largest balloon
