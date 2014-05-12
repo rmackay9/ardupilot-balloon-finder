@@ -94,10 +94,6 @@ def get_background(roll_in_radians, pitch_in_radians):
 
     return image
 
-# draw_fake_balloon_xyr - draws fake balloon in the frame at the specified x and y pixel coordintaes
-def draw_fake_balloon_xyr(frame, x, y, radius):
-    cv2.circle(frame,(x,y),radius,fake_ballon_colour_bgr_scalar,-1)
-
 # draw_fake_balloon_rpy - draws fake balloon in the frame at the specified roll, pitch and yaw angle
 def draw_fake_balloon_rpy(frame,(vehicle_lat,vehicle_lon,vehicle_alt), (balloon_lat,balloon_lon,balloon_alt), vehicle_roll_in_radians, vehicle_pitch_in_radians, vehicle_yaw_in_radians):
     dist_to_balloon_xy = math.sqrt(math.pow(balloon_lat-vehicle_lat,2)+math.pow(balloon_lon-vehicle_lon,2))
@@ -115,6 +111,13 @@ def draw_fake_balloon_rpy(frame,(vehicle_lat,vehicle_lon,vehicle_alt), (balloon_
     # draw circle
     cv2.circle(frame,(balloon_x,balloon_y),balloon_radius,fake_ballon_colour_bgr_scalar,-1)
 
+def get_simulated_frame((vehicle_lat,vehicle_lon,vehicle_alt), (balloon_lat,balloon_lon,balloon_alt), vehicle_roll_in_radians, vehicle_pitch_in_radians, vehicle_yaw_in_radians):
+    # get background
+    sim_frame = get_background(vehicle_roll_in_radians,vehicle_pitch_in_radians)
+    # draw balloon on background
+    draw_fake_balloon_rpy(sim_frame,(vehicle_lat,vehicle_lon,vehicle_alt),(balloon_lat,balloon_lon,balloon_alt),vehicle_roll_in_radians,vehicle_pitch_in_radians,vehicle_yaw_in_radians)
+    return sim_frame
+
 def main():
 
     # vehicle attitude
@@ -122,16 +125,12 @@ def main():
     veh_pitch = math.radians(5);
     veh_yaw = math.radians(-10);
 
-    # get background
-    background = get_background(veh_roll,veh_pitch)
-
-    # draw balloon
-    #draw_fake_balloon_xyr(background, 340, 240, 50)
-    draw_fake_balloon_rpy(background,(0,0,0),(10,0,2),veh_roll,veh_pitch,veh_yaw)
+    # generate simulated frame of balloon 10m north, 2m above vehicle
+    img = get_simulated_frame((0,0,0),(10,0,2),veh_roll,veh_pitch,veh_yaw)
 
     while(True):
         #cv2.cv.ShowImage("fake balloon", background)
-        cv2.imshow("fake balloon", background)
+        cv2.imshow("fake balloon", img)
 
         # wait for keypress 
         k = cv2.waitKey(5) & 0xFF
