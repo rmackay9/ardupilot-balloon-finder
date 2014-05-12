@@ -21,6 +21,10 @@ import math
 img_width = 640
 img_height = 480
 
+# calculate center of image in pixels
+img_center_x = img_width / 2
+img_center_y = img_height / 2    
+
 # define field of view
 cam_hfov = 70.42
 cam_vfov = 43.3
@@ -161,9 +165,6 @@ def add_artificial_horizon(frame, roll_in_radians, pitch_in_radians):
     ah2_x_rot, ah2_y_rot = rotate_pos(ah2_x, ah2_y, -roll_in_radians)
     # shift down by by -ve pitch angle
     pitch_pixel_shift = int(math.degrees(pitch_in_radians) / float(cam_vfov) * img_height)
-    # calculate center of image in pixels
-    img_center_x = img_width / 2
-    img_center_y = img_height / 2
     cv2.line(frame,(int(ah1_x_rot)+img_center_x,int(ah1_y_rot)+img_center_y+pitch_pixel_shift),(int(ah2_x_rot)+img_center_x,int(ah2_y_rot)+img_center_y+pitch_pixel_shift),5000,2)
 
 # pos_to_direction - converts a pixel location to a direction vector
