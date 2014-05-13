@@ -34,6 +34,29 @@ fake_ballon_colour_bgr_scalar = cv2.cv.Scalar(fake_ballon_colour_bgr.item(0), fa
 background_sky_colour_bgr_scalar = cv2.cv.Scalar(232, 228, 227)
 background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
 
+# location
+fake_balloon_latlonalt = (-35.363739,149.165826,20) # hard coded balloon position
+home_latlonalt = (-35.362938,149.165085,0)          # tridge's home field (absolute alt = 270)
+#home_pos_latlonalt = (40.072842,-105.230575,1586,0) # AVC home
+
+# conversion from lat/lon to meters from home
+LATLON_TO_M = 111319.5
+scale_down_lon = math.cos(math.radians(home_latlonalt[0]))
+
+# latlon_to_position - converts a lat, lon, altitude to a distance from home in meters
+#     To-Do: move this to a common python script
+def latlonalt_to_position((lat,lon,alt)):
+    # convert lat, lon to meters from home
+    x = (lat - home_latlonalt[0]) * LATLON_TO_M
+    y = (lon - home_latlonalt[1]) * LATLON_TO_M * scale_down_lon
+    return (x,y,alt)
+
+# fake balloon position as an offset in meters from home
+#    1st element is lat.  I.e. +ve = north, -ve = south
+#    2nd element is lon.  I.e. +ve = east, -ve = west
+#    3rd element is alt.  I.e. +ve is above home, -ve is below
+fake_balloon_pos = latlonalt_to_position(fake_balloon_latlonalt)
+
 # angle_to_pixel_x - converts a horizontal angle (i.e. yaw) to a number of pixels 
 def angle_to_pixel_x(angle_in_radians):
     return int(angle_in_radians * img_width / math.radians(cam_hfov))
@@ -111,11 +134,14 @@ def draw_fake_balloon_rpy(frame,(vehicle_lat,vehicle_lon,vehicle_alt), (balloon_
     # draw circle
     cv2.circle(frame,(balloon_x,balloon_y),balloon_radius,fake_ballon_colour_bgr_scalar,-1)
 
-def get_simulated_frame((vehicle_lat,vehicle_lon,vehicle_alt), (balloon_lat,balloon_lon,balloon_alt), vehicle_roll_in_radians, vehicle_pitch_in_radians, vehicle_yaw_in_radians):
+# get_simulated_frame - returns an image of a simulated background and balloon based upon vehicle position, vehicle attitude and balloon position
+def get_simulated_frame((vehicle_lat,vehicle_lon,vehicle_alt), vehicle_roll_in_radians, vehicle_pitch_in_radians, vehicle_yaw_in_radians):
+    # convert vehicle position to meters from home
+    veh_pos = latlonalt_to_position((vehicle_lat,vehicle_lon,vehicle_alt))
     # get background
     sim_frame = get_background(vehicle_roll_in_radians,vehicle_pitch_in_radians)
     # draw balloon on background
-    draw_fake_balloon_rpy(sim_frame,(vehicle_lat,vehicle_lon,vehicle_alt),(balloon_lat,balloon_lon,balloon_alt),vehicle_roll_in_radians,vehicle_pitch_in_radians,vehicle_yaw_in_radians)
+    draw_fake_balloon_rpy(sim_frame,veh_pos,fake_balloon_pos,vehicle_roll_in_radians,vehicle_pitch_in_radians,vehicle_yaw_in_radians)
     return sim_frame
 
 def main():
@@ -123,10 +149,11 @@ def main():
     # vehicle attitude
     veh_roll = math.radians(10);
     veh_pitch = math.radians(5);
-    veh_yaw = math.radians(-10);
+    veh_yaw = math.radians(120);
 
+    veh_pos = home_latlonalt
     # generate simulated frame of balloon 10m north, 2m above vehicle
-    img = get_simulated_frame((0,0,0),(10,0,2),veh_roll,veh_pitch,veh_yaw)
+    img = get_simulated_frame(veh_pos,veh_roll,veh_pitch,veh_yaw)
 
     while(True):
         #cv2.cv.ShowImage("fake balloon", background)
