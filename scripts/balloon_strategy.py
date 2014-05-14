@@ -1,8 +1,8 @@
 import time
 from droneapi.lib import VehicleMode, Location
-from find_balloon import get_camera, open_video_writer, analyse_frame, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction
-from fake_balloon import get_simulated_frame
-from math import degrees
+from find_balloon import get_camera, open_video_writer, analyse_frame, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction, get_distance_from_pixels, project_position 
+from fake_balloon import get_simulated_frame, position_to_latlonalt
+from math import degrees, radians
 
 """
 This is an early guess at a top level controller that uses the DroneAPI and OpenCV magic
@@ -31,6 +31,10 @@ To run this module:
     this code automatically)
 
 """
+
+use_simulator = False
+#use_simulator = True
+
 class BalloonStrategy(object):
     def __init__(self):
         # First get an instance of the API endpoint (the connect via web case will be similar)
@@ -50,11 +54,16 @@ class BalloonStrategy(object):
         self.min_wpt = 1 # If the vehicle is in its AUTO mission, we only look for balloons between these two wpts
         self.max_wpt = 4
 
-        self.camera = get_camera()
+        if not use_simulator:
+            self.camera = get_camera()
         self.writer = open_video_writer()
 
     def get_frame(self):
-        _, frame = self.camera.read()
+        if use_simulator:
+            veh_pos = (self.vehicle.location.lat,self.vehicle.location.lon,self.vehicle.location.alt)
+            frame = get_simulated_frame(veh_pos,self.vehicle.attitude.roll,self.vehicle.attitude.pitch,self.vehicle.attitude.yaw)
+        else:
+            _, frame = self.camera.read()
         return frame
 
     def analyze_image(self):
@@ -65,10 +74,6 @@ class BalloonStrategy(object):
         yaw_in_radians = self.vehicle.attitude.yaw
 
         f = self.get_frame()
-
-        # uncomment lines below to get simulated image from camera
-        #veh_pos = (self.vehicle.location.lat,self.vehicle.location.lon,self.vehicle.location.alt)
-        #f = get_simulated_frame(veh_pos,roll_in_radians,pitch_in_radians,yaw_in_radians)
 
         # FIXME - analyze the image to get a score indicating likelyhood there is a balloon and if it
         # is there the x & y position in frame of the largest balloon
@@ -84,12 +89,19 @@ class BalloonStrategy(object):
 
             # convert x, y position to pitch and yaw direction (in degrees)
             pitch_dir, yaw_dir = pos_to_direction(xpos, ypos, roll_in_radians, pitch_in_radians, yaw_in_radians)
-            print "Balloon found at heading %f, and %f degrees up" % (yaw_dir, pitch_dir)
+
+            # get distance
+            balloon_distance = get_distance_from_pixels(size)
+
+            # debug
+            #print "Balloon found at heading %f, and %f degrees up, dist:%f meters" % (yaw_dir, pitch_dir, balloon_distance)
+
+            # calculate expected position
+            pos_offset = project_position(radians(pitch_dir),radians(yaw_dir),balloon_distance)
 
             # FIXME - do math based on current vehicle loc and the x,y frame position
-            lat_offset = 0 # FIXME
-            lon_offset = 0
-            alt_offset = 0
+            (lat_offset, lon_offset, alt_offset) = position_to_latlonalt(pos_offset)
+
             target_pos = Location(vehicle_pos.lat + lat_offset, vehicle_pos.lon + lon_offset, vehicle_pos.alt + alt_offset, vehicle_pos.is_relative)
             #print "Balloon found at %s" % target_pos
 
