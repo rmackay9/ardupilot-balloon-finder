@@ -35,7 +35,9 @@ background_sky_colour_bgr_scalar = cv2.cv.Scalar(232, 228, 227)
 background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
 
 # location
-fake_balloon_latlonalt = (-35.363739,149.165826,20) # hard coded balloon position
+#fake_balloon_latlonalt = (-35.363739,149.165826,20) # hard coded balloon position
+fake_balloon_latlonalt = (-35.362938,149.164900,10) # hard coded balloon position directly in front of copter's take-off position in simulator
+#7.7m ok
 home_latlonalt = (-35.362938,149.165085,0)          # tridge's home field (absolute alt = 270)
 #home_pos_latlonalt = (40.072842,-105.230575,1586,0) # AVC home
 
@@ -50,6 +52,13 @@ def latlonalt_to_position((lat,lon,alt)):
     x = (lat - home_latlonalt[0]) * LATLON_TO_M
     y = (lon - home_latlonalt[1]) * LATLON_TO_M * scale_down_lon
     return (x,y,alt)
+
+def wrap_PI(angle_in_radians):
+    if (angle_in_radians > math.pi):
+        return (angle_in_radians - (math.pi * 2.0))
+    if (angle_in_radians < -math.pi):
+        return (angle_in_radians + (math.pi * 2.0))
+    return angle_in_radians
 
 # fake balloon position as an offset in meters from home
 #    1st element is lat.  I.e. +ve = north, -ve = south
@@ -125,7 +134,7 @@ def draw_fake_balloon_rpy(frame,(vehicle_lat,vehicle_lon,vehicle_alt), (balloon_
         pitch_to_balloon = vehicle_pitch_in_radians
     else:
         pitch_to_balloon = -math.atan2(balloon_alt-vehicle_alt,dist_to_balloon_xy) + vehicle_pitch_in_radians;
-    yaw_to_balloon = (bearing_to_balloon-vehicle_yaw_in_radians)
+    yaw_to_balloon = wrap_PI(bearing_to_balloon-vehicle_yaw_in_radians)
     # calculate pixel position of balloon
     balloon_x = angle_to_pixel_x(yaw_to_balloon)
     balloon_y = angle_to_pixel_y(pitch_to_balloon)
