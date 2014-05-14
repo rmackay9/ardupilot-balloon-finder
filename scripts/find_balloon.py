@@ -75,9 +75,6 @@ def analyse_frame(frame):
     # Threshold the HSV image
     mask = cv2.inRange(hsv, colour_low, colour_high)
 
-    # blur the result
-    #mask = cv2.medianBlur(mask,9)
-
     # Erode
     erode_kernel = np.ones((3,3),np.uint8);
     eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
@@ -92,10 +89,6 @@ def analyse_frame(frame):
     # create a grey version of the result
     grey_res = cv2.cvtColor(res,cv2.COLOR_BGR2GRAY)
 
-    # threshold it to a black and white image
-    #thresh_used, grey_res = cv2.threshold(grey_res,10,255,cv2.THRESH_BINARY)
-
-    #grey_res = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
     # blur it to reduce false circles
     grey_res = cv2.medianBlur(grey_res,5)
 
