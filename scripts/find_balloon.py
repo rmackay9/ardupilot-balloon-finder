@@ -29,6 +29,9 @@ img_center_y = img_height / 2
 cam_hfov = 70.42
 cam_vfov = 43.3
 
+# define expected balloon radius in meters
+balloon_radius_expected = 0.5
+
 def get_camera():
     # setup video capture
     video_capture = cv2.VideoCapture(0)
@@ -174,6 +177,30 @@ def pos_to_direction(xpos, ypos, roll_in_radians, pitch_in_radians, yaw_in_radia
     yaw_dir = x_rotated / float(img_width) * float(cam_hfov) + math.degrees(yaw_in_radians)
     # return vertical angle to target and heading
     return pitch_dir, yaw_dir
+
+# get_distance_from_pixels - returns distance to balloon in meters given number of pixels in image and expected 0.5m radius
+def get_distance_from_pixels(radius_in_pixels):
+    # avoid divide by zero by returning 9999.9 meters for zero sized object 
+    if (radius_in_pixels == 0):
+        return 9999.9
+    # convert num_pixels to angular size
+    return balloon_radius_expected / pixel_x_to_angle(radius_in_pixels)
+
+# angle_to_pixel_x - converts a horizontal angle (i.e. yaw) to a number of pixels 
+def angle_to_pixel_x(angle_in_radians):
+    return int(angle_in_radians * img_width / math.radians(cam_hfov))
+
+# angle_to_pixel_x - converts a horizontal angle (i.e. yaw) to a number of pixels 
+def pixel_x_to_angle(num_pixels):
+    return num_pixels * math.radians(cam_hfov) / img_width
+
+# project_position - calculates the position in m given a yaw angle, pitch angle and distance
+def project_position(pitch_in_radians, yaw_in_radians, distance_m):
+    cos_pitch = math.cos(pitch_in_radians)
+    x = distance_m * math.cos(yaw_in_radians) * cos_pitch
+    y = distance_m * math.sin(yaw_in_radians) * cos_pitch
+    z = distance_m * math.sin(pitch_in_radians)
+    return (x,y,z)
 
 def main():
     video_capture = get_camera()
