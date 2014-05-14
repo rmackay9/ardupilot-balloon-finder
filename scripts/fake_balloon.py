@@ -36,7 +36,7 @@ background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
 
 # location
 #fake_balloon_latlonalt = (-35.363739,149.165826,20) # hard coded balloon position
-fake_balloon_latlonalt = (-35.362938,149.164900,10) # hard coded balloon position directly in front of copter's take-off position in simulator
+fake_balloon_latlonalt = (-35.362938,149.165050,0) # hard coded balloon position directly in front of copter's take-off position in simulator
 #7.7m ok
 home_latlonalt = (-35.362938,149.165085,0)          # tridge's home field (absolute alt = 270)
 #home_pos_latlonalt = (40.072842,-105.230575,1586,0) # AVC home
@@ -52,6 +52,15 @@ def latlonalt_to_position((lat,lon,alt)):
     x = (lat - home_latlonalt[0]) * LATLON_TO_M
     y = (lon - home_latlonalt[1]) * LATLON_TO_M * scale_down_lon
     return (x,y,alt)
+
+# position_to_latlonalt - converts a distance in meters into the equivalent lat and lon offsets
+#     To-Do: move this to a common python script
+#     Note: this function is confusing because it doesn't add the home lat, lon so it is different from the function above
+def position_to_latlonalt((x,y,z)):
+    # convert lat, lon to meters from home
+    lat = x / LATLON_TO_M
+    lon = y / (LATLON_TO_M * scale_down_lon)
+    return (lat,lon,z)
 
 def wrap_PI(angle_in_radians):
     if (angle_in_radians > math.pi):
@@ -135,6 +144,7 @@ def draw_fake_balloon_rpy(frame,(vehicle_lat,vehicle_lon,vehicle_alt), (balloon_
     else:
         pitch_to_balloon = -math.atan2(balloon_alt-vehicle_alt,dist_to_balloon_xy) + vehicle_pitch_in_radians;
     yaw_to_balloon = wrap_PI(bearing_to_balloon-vehicle_yaw_in_radians)
+    #print "Fake Balloon Bearing:%f Pitch:%f Dist:%f" % (math.degrees(bearing_to_balloon), math.degrees(pitch_to_balloon), dist_to_balloon_xy)
     # calculate pixel position of balloon
     balloon_x = angle_to_pixel_x(yaw_to_balloon)
     balloon_y = angle_to_pixel_y(pitch_to_balloon)
@@ -156,9 +166,9 @@ def get_simulated_frame((vehicle_lat,vehicle_lon,vehicle_alt), vehicle_roll_in_r
 def main():
 
     # vehicle attitude
-    veh_roll = math.radians(10);
-    veh_pitch = math.radians(5);
-    veh_yaw = math.radians(120);
+    veh_roll = math.radians(0);
+    veh_pitch = math.radians(0);
+    veh_yaw = math.radians(270);
 
     veh_pos = home_latlonalt
     # generate simulated frame of balloon 10m north, 2m above vehicle
