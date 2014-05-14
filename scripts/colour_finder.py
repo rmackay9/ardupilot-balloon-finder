@@ -18,6 +18,9 @@ import cv2
 import cv2.cv
 import numpy as np
 
+# uncomment below if using simulated image
+#from fake_balloon import get_simulated_frame, fake_balloon_latlonalt
+
 # define image resolution
 img_width = 640
 img_height = 480
@@ -44,14 +47,24 @@ s_high = 255
 v_low = 0
 v_high = 255
 
+'''
 # default filter -- yellow tennis ball
-#h_low = 23
-#h_high = 96
-#s_low = 82
-#s_high = 160
-#v_low = 141
-#v_high = 255
-    
+h_low = 23
+h_high = 96
+s_low = 82
+s_high = 160
+v_low = 141
+v_high = 255
+
+# default filter -- red balloon
+h_low = 154
+h_high = 195
+s_low = 75
+s_high = 255
+v_low = 63
+v_high = 191
+'''
+
 # create trackbars for color change
 cv2.namedWindow('Colour Filters')
 cv2.createTrackbar('Hue min','Colour Filters',h_low,255,empty_callback)
@@ -65,6 +78,10 @@ while(1):
 
     # Take each frame
     _, frame = video_capture.read()
+
+    # uncomment below if using simulated image
+    #veh_pos = (fake_balloon_latlonalt[0]-0.000110,fake_balloon_latlonalt[1],fake_balloon_latlonalt[2])
+    #frame = get_simulated_frame(veh_pos,0,0,0)
 
     # Convert BGR to HSV
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -84,9 +101,6 @@ while(1):
     # Threshold the HSV image
     mask = cv2.inRange(hsv, colour_low, colour_high)
 
-    # blur the result
-    #mask = cv2.medianBlur(mask,9)
-
     # Erode
     erode_kernel = np.ones((3,3),np.uint8);
     eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
@@ -97,7 +111,7 @@ while(1):
 
     # Bitwise-AND mask and original image
     res = cv2.bitwise_and(frame,frame, mask= dilate_img)
-            
+
     cv2.imshow('Original',frame)
     cv2.imshow('Mask',mask)
     cv2.imshow('Filtered Result',res)
