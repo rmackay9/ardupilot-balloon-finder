@@ -122,10 +122,10 @@ while(1):
     grey_res = cv2.medianBlur(grey_res,5)
 
     if (switch == 1):
-	    circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
+        circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
     	#circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,20)
 
-  	    # check if any circles were found
+        # check if any circles were found
     	if not (circles is None):
         	# print(circles)
         	# draw circles around the circles
