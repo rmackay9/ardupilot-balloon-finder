@@ -36,7 +36,7 @@ background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
 
 # location
 #fake_balloon_latlonalt = (-35.363739,149.165826,20) # hard coded balloon position
-fake_balloon_latlonalt = (-35.362938,149.165050,0) # hard coded balloon position directly in front of copter's take-off position in simulator
+fake_balloon_latlonalt = (-35.362938,149.164980,3) # hard coded balloon position directly in front of copter's take-off position in simulator
 #7.7m ok
 home_latlonalt = (-35.362938,149.165085,0)          # tridge's home field (absolute alt = 270)
 #home_pos_latlonalt = (40.072842,-105.230575,1586,0) # AVC home
