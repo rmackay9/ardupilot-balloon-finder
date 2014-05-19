@@ -17,13 +17,14 @@
 import cv2
 import cv2.cv
 import numpy as np
+import balloon_config
 
 # uncomment below if using simulated image
 #from fake_balloon import get_simulated_frame, fake_balloon_latlonalt
 
-# define image resolution
-img_width = 640
-img_height = 480
+# get image resolution
+img_width = balloon_config.config.get_integer('camera','width',640)
+img_height = balloon_config.config.get_integer('camera','height',480)
 
 # setup video capture
 video_capture = cv2.VideoCapture(0)
@@ -38,6 +39,19 @@ if not video_capture.isOpened():
 # call back for trackbar movements
 def empty_callback(x):
     pass
+
+def save_callback(x):
+    if x == 10:
+        balloon_config.config.set_integer('balloon','h-low',h_low)
+        balloon_config.config.set_integer('balloon','h-high',h_high)
+        balloon_config.config.set_integer('balloon','s-low',s_low)
+        balloon_config.config.set_integer('balloon','s-high',s_high)
+        balloon_config.config.set_integer('balloon','v-low',v_low)
+        balloon_config.config.set_integer('balloon','v-high',v_high)
+        balloon_config.config.save();
+        print "Saved colour filters to config file!"
+    return
+save = 0
 
 # default filters -- all visible
 h_low = 0
@@ -73,6 +87,7 @@ cv2.createTrackbar('Sat min','Colour Filters',s_low,255,empty_callback)
 cv2.createTrackbar('Sat max','Colour Filters',s_high,255,empty_callback)
 cv2.createTrackbar('Bgt min','Colour Filters',v_low,255,empty_callback)
 cv2.createTrackbar('Bgt max','Colour Filters',v_high,255,empty_callback)
+cv2.createTrackbar('Save','Colour Filters',0,10,save_callback)
 
 while(1):
 
