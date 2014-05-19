@@ -16,15 +16,29 @@ import cv2
 import cv2.cv
 import numpy as np
 import math
+import balloon_config
 from find_balloon import rotate_pos, img_width, img_height, img_center_x, img_center_y, cam_hfov, cam_vfov
 
+# fake balloon location
+fake_balloon_latlonalt = (balloon_config.config.get_float('fake-balloon', 'lat',-35.362938),
+                          balloon_config.config.get_float('fake-balloon', 'lon',149.164980),
+                          balloon_config.config.get_float('fake-balloon', 'alt',1))
+
+# fake home location - tridge's home field (absolute alt = 270)
+home_latlonalt = (balloon_config.config.get_float('fake-balloon', 'home-lat',-35.362938),
+                  balloon_config.config.get_float('fake-balloon', 'home-lon',149.165085),
+                  balloon_config.config.get_float('fake-balloon', 'home-alt',0)) 
+
+#home_pos_latlonalt = (40.072842,-105.230575,1586,0) # AVC home
+
+
 # fake balloon colour in HSV palette
-fake_balloon_h = 175
-fake_balloon_s = 165
-fake_balloon_v = 127
+fake_balloon_h = balloon_config.config.get_integer('fake-balloon','h',175)
+fake_balloon_s = balloon_config.config.get_integer('fake-balloon','s',165)
+fake_balloon_v = balloon_config.config.get_integer('fake-balloon','v',127)
 
 # fake balloon is 1m across
-fake_balloon_radius = 0.5
+fake_balloon_radius = balloon_config.config.get_float('fake-balloon','radius_cm',0.5)
 
 # fake ballon colour in BGR pallette
 fake_ballon_colour_bgr = cv2.cvtColor(np.uint8([[[fake_balloon_h,fake_balloon_s,fake_balloon_v]]]),cv2.COLOR_HSV2BGR)
@@ -33,13 +47,6 @@ fake_ballon_colour_bgr_scalar = cv2.cv.Scalar(fake_ballon_colour_bgr.item(0), fa
 # background sky colour
 background_sky_colour_bgr_scalar = cv2.cv.Scalar(232, 228, 227)
 background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
-
-# location
-#fake_balloon_latlonalt = (-35.363739,149.165826,20) # hard coded balloon position
-fake_balloon_latlonalt = (-35.362938,149.164980,3) # hard coded balloon position directly in front of copter's take-off position in simulator
-#7.7m ok
-home_latlonalt = (-35.362938,149.165085,0)          # tridge's home field (absolute alt = 270)
-#home_pos_latlonalt = (40.072842,-105.230575,1586,0) # AVC home
 
 # conversion from lat/lon to meters from home
 LATLON_TO_M = 111319.5
