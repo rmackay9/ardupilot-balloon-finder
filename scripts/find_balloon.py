@@ -16,21 +16,30 @@ import cv2
 import cv2.cv
 import numpy as np
 import math
+import balloon_config
 
 # define image resolution
-img_width = 640
-img_height = 480
+img_width = balloon_config.config.get_integer('camera','width',640)
+img_height = balloon_config.config.get_integer('camera','height',480)
 
 # calculate center of image in pixels
 img_center_x = img_width / 2
 img_center_y = img_height / 2    
 
 # define field of view
-cam_hfov = 70.42
-cam_vfov = 43.3
+cam_hfov = balloon_config.config.get_float('camera','horizontal-fov',70.42)
+cam_vfov = balloon_config.config.get_float('camera','vertical-fov',43.3)
 
 # define expected balloon radius in meters
-balloon_radius_expected = 0.5
+balloon_radius_expected = balloon_config.config.get_float('balloon','radius_cm',0.5)
+
+# colour filters for balloon - (this is for the red sparkfun balloon)
+h_low = balloon_config.config.get_integer('balloon','h-low',154)
+h_high = balloon_config.config.get_integer('balloon','h-high',195)
+s_low = balloon_config.config.get_integer('balloon','s-low',75)
+s_high = balloon_config.config.get_integer('balloon','s-high',255)
+v_low = balloon_config.config.get_integer('balloon','v-low',63)
+v_high = balloon_config.config.get_integer('balloon','v-high',191)
 
 def get_camera():
     # setup video capture
@@ -55,14 +64,6 @@ def open_video_writer():
     return video_writer
 
 def analyse_frame(frame):
-    # default colour filters (this is for the red sparkfun balloon)
-    h_low = 154
-    h_high = 195
-    s_low = 75
-    s_high = 255
-    v_low = 63
-    v_high = 191
-
     balloon_found = False
     balloon_x = 0
     balloon_y = 0
@@ -108,7 +109,7 @@ def analyse_frame(frame):
         biggest_radius = 0
         biggest_circle_num = 0
 
-        # find largest circle        
+        # find largest circle
         circles = np.uint16(np.around(circles))
         for i in circles[0,:]:
             if (i[2] > biggest_radius):
@@ -128,14 +129,6 @@ def analyse_frame(frame):
     return balloon_found, balloon_x, balloon_y, balloon_radius
 
 def analyse_frame_for_blob(frame):
-    # default colour filters (this is for the red sparkfun balloon)
-    h_low = 154
-    h_high = 195
-    s_low = 75
-    s_high = 255
-    v_low = 63
-    v_high = 191
-
     balloon_found = False
     balloon_x = 0
     balloon_y = 0
