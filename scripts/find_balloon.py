@@ -127,6 +127,74 @@ def analyse_frame(frame):
     # return results
     return balloon_found, balloon_x, balloon_y, balloon_radius
 
+def analyse_frame_for_blob(frame):
+    # default colour filters (this is for the red sparkfun balloon)
+    h_low = 154
+    h_high = 195
+    s_low = 75
+    s_high = 255
+    v_low = 63
+    v_high = 191
+
+    balloon_found = False
+    balloon_x = 0
+    balloon_y = 0
+    balloon_radius = 0
+
+    # Convert BGR to HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # use trackbar positions to filter image
+    colour_low = np.array([h_low,s_low,v_low])
+    colour_high = np.array([h_high,s_high,v_high])
+
+    # Threshold the HSV image
+    mask = cv2.inRange(hsv, colour_low, colour_high)
+        
+    # Erode
+    erode_kernel = np.ones((3,3),np.uint8);
+    eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
+
+    # dilate
+    dilate_kernel = np.ones((10,10),np.uint8);
+    dilate_img = cv2.dilate(eroded_img,dilate_kernel,iterations = 1)
+
+    # blog detector
+    blob_params = cv2.SimpleBlobDetector_Params()
+    blob_params.minDistBetweenBlobs = 50
+    blob_params.filterByInertia = False
+    blob_params.filterByConvexity = False
+    blob_params.filterByColor = True
+    blob_params.blobColor = 255
+    blob_params.filterByCircularity = False
+    blob_params.filterByArea = False
+    #blob_params.minArea = 20
+    #blob_params.maxArea = 500
+    blob_detector = cv2.SimpleBlobDetector(blob_params)
+    keypts = blob_detector.detect(dilate_img)
+
+    # draw centers of all keypoints in new image
+    #blob_img = cv2.drawKeypoints(frame, keypts, color=(0,255,0), flags=0)
+
+    # find largest blob
+    if len(keypts) > 0:
+        kp_max = keypts[0]
+        for kp in keypts:
+            if kp.size > kp_max.size:
+                kp_max = kp
+
+        # draw circle around the largest blob
+        cv2.circle(frame,(int(kp_max.pt[0]),int(kp_max.pt[1])),int(kp_max.size),(0,255,0),2)
+
+        # set the balloon location
+        balloon_found = True
+        balloon_x = kp_max.pt[0]
+        balloon_y = kp_max.pt[1]
+        balloon_radius = kp_max.size
+
+    # return results
+    return balloon_found, balloon_x, balloon_y, balloon_radius
+
 # image_pos_to_angle - converts an x, y position into an angle
 # returns a horizontal and vertical angle from the center
 # i.e. 0,0 is directly ahead of the camera
@@ -210,13 +278,14 @@ def main():
     start_time = time.time()
 
     # loop for 10 seconds looking for circles
-    while(time.time() - start_time < 10):
+    while(time.time() - start_time < 20):
 
         # Take each frame
         _, frame = camera.read()
 
         # is there the x & y position in frame of the largest balloon
-        found_in_image, xpos, ypos, size = analyse_frame(frame)
+        #found_in_image, xpos, ypos, size = analyse_frame(frame)
+        found_in_image, xpos, ypos, size = analyse_frame_for_blob(frame)
 
         # display image
         cv2.imshow('frame',frame)
