@@ -1,7 +1,7 @@
 import time
 from droneapi.lib import VehicleMode, Location
 from balloon_utils import get_distance, filter_position
-from find_balloon import get_camera, open_video_writer, analyse_frame, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction, get_distance_from_pixels, project_position 
+from find_balloon import get_camera, open_video_writer, analyse_frame, analyse_frame_for_blob, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction, get_distance_from_pixels, project_position 
 from fake_balloon import get_simulated_frame, position_to_latlonalt
 from math import degrees, radians
 
@@ -92,7 +92,8 @@ class BalloonStrategy(object):
         # FIXME - analyze the image to get a score indicating likelyhood there is a balloon and if it
         # is there the x & y position in frame of the largest balloon
         # FIXME - check if the balloon gets larger if we think we are approaching it
-        found_in_image, xpos, ypos, size = analyse_frame(f)
+        #found_in_image, xpos, ypos, size = analyse_frame(f)
+        found_in_image, xpos, ypos, size = analyse_frame_for_blob(f)
 
         # add artificial horizon
         add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
