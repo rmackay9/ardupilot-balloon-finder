@@ -1,5 +1,6 @@
 import time
 from droneapi.lib import VehicleMode, Location
+import balloon_config
 from balloon_utils import get_distance, filter_position
 from find_balloon import get_camera, open_video_writer, analyse_frame, analyse_frame_for_blob, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction, get_distance_from_pixels, project_position 
 from fake_balloon import get_simulated_frame, position_to_latlonalt
@@ -57,10 +58,10 @@ class BalloonStrategy(object):
         # The module only prints log messages unless the vehicle is in GUIDED mode (for testing).
         # Once this seems to work reasonablly well change self.debug to False and then it will
         # actually _enter_ guided mode when it thinks it sees a balloon
-        self.debug = True
+        self.debug = balloon_config.config.get_boolean('general','debug',True)
 
         # use the simulator to generate fake balloon images
-        self.use_simulator = True
+        self.use_simulator = balloon_config.config.get_boolean('general','simulate',True)
 
         self.min_wpt = 1 # If the vehicle is in its AUTO mission, we only look for balloons between these two wpts
         self.max_wpt = 4
