@@ -1,10 +1,12 @@
 import time
+import math
 from droneapi.lib import VehicleMode, Location
 import balloon_config
-from balloon_utils import get_distance, filter_position
-from find_balloon import get_camera, open_video_writer, analyse_frame, analyse_frame_for_blob, image_pos_to_angle, rotate_pos, add_artificial_horizon, pos_to_direction, get_distance_from_pixels, project_position 
-from fake_balloon import get_simulated_frame, position_to_latlonalt
-from math import degrees, radians
+from balloon_video import balloon_video
+from balloon_utils import get_distance_from_pixels
+from position_vector import PositionVector
+from find_balloon import balloon_finder
+from fake_balloon import balloon_sim
 
 """
 This is an early guess at a top level controller that uses the DroneAPI and OpenCV magic
@@ -43,11 +45,15 @@ class BalloonStrategy(object):
         # Our vehicle (we assume the user is trying to control the virst vehicle attached to the GCS)
         self.vehicle = self.api.get_vehicles()[0]
 
-        # Our guess of the balloon location (if we have one)
-        self.balloon_loc = None
+        # vehicle position captured at time camera image was captured
+        self.vehicle_pos = None
+
+        # Our guess of the balloon position as an offset from home (if we have one)
+        self.balloon_pos = None             # last estimated position
 
         # target location we are flying to (if we have one)
-        self.guided_target = None
+        self.guided_target_pos = None
+        self.guided_target_loc = None
 
         # time the target balloon was last spotted
         self.last_spotted_time = 0
@@ -68,12 +74,12 @@ class BalloonStrategy(object):
 
         if not self.use_simulator:
             self.camera = get_camera()
-        self.writer = open_video_writer()
+        self.writer = balloon_video.open_video_writer()
 
     def get_frame(self):
         if self.use_simulator:
-            veh_pos = (self.vehicle.location.lat,self.vehicle.location.lon,self.vehicle.location.alt)
-            frame = get_simulated_frame(veh_pos,self.vehicle.attitude.roll,self.vehicle.attitude.pitch,self.vehicle.attitude.yaw)
+            veh_pos = PositionVector.get_from_location(self.vehicle.location)
+            frame = balloon_sim.get_simulated_frame(veh_pos, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw)
         else:
             _, frame = self.camera.read()
         return frame
@@ -84,46 +90,40 @@ class BalloonStrategy(object):
         now = time.time()
 
         # capture vehicle position and attitude
-        vehicle_pos = self.vehicle.location
+        self.vehicle_pos = PositionVector.get_from_location(self.vehicle.location)
         vehicle_attitude = self.vehicle.attitude
 
         # get new image from camera
         f = self.get_frame()
 
-        # FIXME - analyze the image to get a score indicating likelyhood there is a balloon and if it
-        # is there the x & y position in frame of the largest balloon
+        # FIXME - analyze the image to get a score indicating likelihood there is a balloon and if it
         # FIXME - check if the balloon gets larger if we think we are approaching it
-        #found_in_image, xpos, ypos, size = analyse_frame(f)
-        found_in_image, xpos, ypos, size = analyse_frame_for_blob(f)
+
+        # look for balloon in image using blob detector        
+        found_in_image, xpos, ypos, size = balloon_finder.analyse_frame_for_blob(f)
 
         # add artificial horizon
-        add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
+        balloon_finder.add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
 
         if found_in_image:
             # record time balloon was found
             self.last_spotted_time = now
 
             # convert x, y position to pitch and yaw direction (in degrees)
-            pitch_dir, yaw_dir = pos_to_direction(xpos, ypos, vehicle_attitude.roll, vehicle_attitude.pitch, vehicle_attitude.yaw)
+            pitch_dir, yaw_dir = balloon_finder.pixels_to_direction(xpos, ypos, vehicle_attitude.roll, vehicle_attitude.pitch, vehicle_attitude.yaw)
 
             # get distance
-            balloon_distance = get_distance_from_pixels(size)
+            balloon_distance = get_distance_from_pixels(size, balloon_finder.balloon_radius_expected)
 
             # debug
             if self.debug:
                 print "Balloon found at heading %f, and %f degrees up, dist:%f meters" % (yaw_dir, pitch_dir, balloon_distance)
 
-            # calculate expected position
-            pos_offset = project_position(radians(pitch_dir),radians(yaw_dir),balloon_distance)
-
-            # convert offset in meters to lat/lon
-            (lat_offset, lon_offset, alt_offset) = position_to_latlonalt(pos_offset)
-
-            # balloon location is vehicle location + offset
-            self.balloon_loc = Location(vehicle_pos.lat + lat_offset, vehicle_pos.lon + lon_offset, vehicle_pos.alt + alt_offset, vehicle_pos.is_relative)
+            # updated estimated balloon position
+            self.balloon_pos = balloon_finder.project_position(self.vehicle_pos, math.radians(pitch_dir),math.radians(yaw_dir),balloon_distance)
         else:
             # indicate that we did not see a balloon
-            self.balloon_loc = None
+            self.balloon_pos = None
 
         # save image for debugging later
         self.writer.write(f)
@@ -132,8 +132,8 @@ class BalloonStrategy(object):
 
         # exit immediately if not in guided mode
         if self.vehicle.mode.name != "GUIDED":
-            if self.debug:
-                print "Not in Guided"
+            #if self.debug:
+            #    print "Not in Guided"
             return
 
         # balloon to control whether we update target location to autopilot
@@ -142,81 +142,90 @@ class BalloonStrategy(object):
         # get current time
         now = time.time()
 
-        # if we have not seen a balloon
-        if self.balloon_loc is None:
-
-            # if we do not have a target
-            if self.guided_target is None:
-                # there is nothing to do but wait for a balloon to appear
+        # if we have not seen the balloon in our most recent image
+        if self.balloon_pos is None:
+            # if we do not have a target there is nothing to do but wait for a balloon to appear
+            if self.guided_target_pos is None:
                 # To-Do: add search logic here?
                 return;
 
+            # although we don't see the balloon we still have a target to the last place we saw it
             else:
-                # if we are within 2m of the last place we saw the balloon but don't see the balloon we have probably popped it (return control to autopilot)
-                if get_distance(self.vehicle.location, self.guided_target) < 2:
+                # if we are within 2m of the target we have probably popped it (return control to autopilot)
+                if PositionVector.get_distance_xyz(self.vehicle_pos, self.guided_target_pos) < 2:
                     if self.debug:
                         print "Lost Balloon, Think we popped it"
                     self.complete()
                     return
 
-                # if we have not seen the balloon in some time, give up on it and maybe start searching again
+                # if we have not seen the balloon in some time, give up on it
                 if now - self.last_spotted_time > self.lost_sight_timeout:
                     if self.debug:
                         print "Lost Balloon, Giving up"
-                    self.guided_target = None
-        else:
-            # we have seen a balloon
+                    # clear out target position
+                    self.guided_target_pos = None
+                    self.guided_target_loc = None
+                    # To-Do: stop vehicle moving and start searching again?
+                    self.complete()
 
+        # we have seen a balloon
+        else:
             # if we have never seen the balloon update our target to the balloon position
-            if self.guided_target is None:
-                self.guided_target = self.balloon_loc
+            if self.guided_target_pos is None:
+                self.guided_target_pos = self.balloon_pos
+                self.guided_target_loc = self.guided_target_pos.get_location()
                 update_target = True
                 if self.debug:
                         print "Found Balloon for the first time"
 
             else:
-                # get distance the target has moved
-                distance_target_moved = get_distance(self.guided_target, self.balloon_loc)
+                # get distance the balloon has apparently moved
+                distance_balloon_moved = PositionVector.get_distance_xyz(self.guided_target_pos, self.balloon_pos)
 
-                # if it has moved less than 50cm ignore the change
-                if distance_target_moved > 0.5:
+                # if balloon has moved more than the radius of the balloon we adjust target
+                if distance_balloon_moved > 0.5:
+                    if self.debug:
+                        print "Dist Balloon Moved: %f" % distance_balloon_moved
 
-                    #if it has moved less than 20m we guess it is the same balloon and move the position estimate towards the new reading
-                    if distance_target_moved < 20:
-                        filter_position(self.guided_target,self.balloon_loc,0.1)
-                        update_target = True
-                        if self.debug:
-                            print "Moved target a little: %f" % (distance_target_moved * 0.1)
+                    # if balloon has apparently moved less than 20m we guess it is the same balloon
+                    if distance_balloon_moved < 20:
+                        # update the target position towards the balloon position
+                        self.guided_target_pos = self.guided_target_pos + (self.balloon_pos - self.guided_target_pos) * 0.1
 
-                    #if it has moved more than 20m we guess it is a different balloon
+                        # convert the new target to a location
+                        target_loc = self.guided_target_pos.get_location()
+
+                        # if different from current target update flight controller target
+                        dalt = math.fabs(target_loc.alt - self.guided_target_loc.alt)
+                        if (target_loc.lat <> self.guided_target_loc.lat or target_loc.lon <> self.guided_target_loc.lon or dalt > 0.10):
+                            self.guided_target_loc = target_loc
+                            update_target = True
+                            if self.debug:
+                                print "Moved target a little: %f" % (distance_balloon_moved * 0.1)
+
+                    # if balloon has moved more than 20m we guess it is a different balloon
                     else:
                         # get distance to the target
-                        distance_to_target = get_distance(self.vehicle.location, self.guided_target)
+                        distance_to_target = PositionVector.get_distance_xyz(self.vehicle_pos, self.guided_target_pos)
 
                         #if we've reached the position we have probably popped the 1st balloon and are now seeing a different balloon
                         if distance_to_target < 2:
                             if self.debug:
                                 print "Found different ball at %f meters" % distance_to_target
+                            # To-Do: try going for this new balloon?  Would need to re-check it's distance, altitude, etc
                             self.complete()
                             return
-                else:
-                    # balloon moved less than 50cm
-                    if self.debug:
-                        print "Balloon didn't move much"
 
         # FIXME - check if vehicle altitude is too low
         # FIXME - check if we are too far from the desired flightplan
 
         # send new target to the autopilot
-        if not self.guided_target is None:
-            if update_target:
-                self.vehicle.commands.goto(self.guided_target)
-                self.vehicle.flush()
-                if self.debug:
-                    print "Going to: %s" % self.guided_target
-        else:
+        if update_target:
+            self.vehicle.commands.goto(self.guided_target_loc)
+            self.vehicle.flush()
             if self.debug:
-                    print "No target"
+                print "Veh %s" % self.vehicle.location
+                print "Going to: %s" % self.guided_target_loc
 
     def run(self):
         while not self.api.exit:
@@ -234,9 +243,13 @@ class BalloonStrategy(object):
 
     # complete - balloon strategy has somehow completed so return control to the autopilot
     def complete(self):
+        # debug 
+        if self.debug:
+            print "Complete!"
         # reset all variables
         self.balloon_loc = None
-        self.guided_target = None
+        self.guided_target_loc = None
+        self.guided_target_pos = None
         self.last_spotted_time = 0
 
         # if in GUIDED mode switch back to LOITER
