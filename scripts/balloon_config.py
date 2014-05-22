@@ -84,10 +84,23 @@ class BalloonConfig(object):
         self.parser.set(section, option, str(float(new_value)))
         return
 
+    # get_string - returns the string found in the specified section/option or the default if not found
+    def get_string(self, section, option, default):
+        try:
+            return self.parser.get(section, option)
+        except ConfigParser.Error:
+            return default
+
+    # set_string - sets the string to the specified section/option
+    def set_string(self, section, option, new_value):
+        self.check_section(section)
+        self.parser.set(section, option, str(new_value))
+        return
+
     # main - tests BalloonConfig class
     def main(self):
         # print welcome message
-        print "BallonConfig v0.1 test"
+        print "BalloonConfig v0.1 test"
         print "config file: %s" % self.config_file
 
         # write and read a boolean
