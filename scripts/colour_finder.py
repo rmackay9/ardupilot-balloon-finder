@@ -15,125 +15,103 @@
 #       Record the values so they can be input manually into the usb_cam_test.py script
 
 import cv2
-import cv2.cv
 import numpy as np
 import balloon_config
+from balloon_video import balloon_video
 
-# uncomment below if using simulated image
-#from fake_balloon import get_simulated_frame, fake_balloon_latlonalt
+class ColourFinder:
 
-# get image resolution
-img_width = balloon_config.config.get_integer('camera','width',640)
-img_height = balloon_config.config.get_integer('camera','height',480)
+    # constructor
+    def __init__(self):
+        # initialise colour filters to no filtering
+        self.h_low = 0
+        self.h_high = 255
+        self.s_low = 0
+        self.s_high = 255
+        self.v_low = 0
+        self.v_high = 255
 
-# setup video capture
-video_capture = cv2.VideoCapture(0)
-video_capture.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH,img_width)
-video_capture.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT,img_height)
+        # initialise save trackbar setting
+        self.save = 0
 
-# check we can connect to camera
-if not video_capture.isOpened():
-    print "failed to open camera, exiting!"
-    sys.exit(0)
+    # call back for trackbar movements
+    def empty_callback(self,x):
+        pass
 
-# call back for trackbar movements
-def empty_callback(x):
-    pass
+    # call back for save trackbar that saves colour filters to config file
+    def save_callback(self,x):
+        if x == 10:
+            balloon_config.config.set_integer('balloon','h-low',self.h_low)
+            balloon_config.config.set_integer('balloon','h-high',self.h_high)
+            balloon_config.config.set_integer('balloon','s-low',self.s_low)
+            balloon_config.config.set_integer('balloon','s-high',self.s_high)
+            balloon_config.config.set_integer('balloon','v-low',self.v_low)
+            balloon_config.config.set_integer('balloon','v-high',self.v_high)
+            balloon_config.config.save();
+            print "Saved colour filters to config file!"
+        return
 
-def save_callback(x):
-    if x == 10:
-        balloon_config.config.set_integer('balloon','h-low',h_low)
-        balloon_config.config.set_integer('balloon','h-high',h_high)
-        balloon_config.config.set_integer('balloon','s-low',s_low)
-        balloon_config.config.set_integer('balloon','s-high',s_high)
-        balloon_config.config.set_integer('balloon','v-low',v_low)
-        balloon_config.config.set_integer('balloon','v-high',v_high)
-        balloon_config.config.save();
-        print "Saved colour filters to config file!"
-    return
-save = 0
+    # run - main routine to help user find colour filters
+    def run(self):
 
-# default filters -- all visible
-h_low = 0
-h_high = 255
-s_low = 0
-s_high = 255
-v_low = 0
-v_high = 255
+        # initialise video capture
+        camera = balloon_video.get_camera()
 
-'''
-# default filter -- yellow tennis ball
-h_low = 23
-h_high = 96
-s_low = 82
-s_high = 160
-v_low = 141
-v_high = 255
+        # create trackbars for color change
+        cv2.namedWindow('Colour Filters')
+        cv2.createTrackbar('Hue min','Colour Filters',self.h_low,255,self.empty_callback)
+        cv2.createTrackbar('Hue max','Colour Filters',self.h_high,255,self.empty_callback)
+        cv2.createTrackbar('Sat min','Colour Filters',self.s_low,255,self.empty_callback)
+        cv2.createTrackbar('Sat max','Colour Filters',self.s_high,255,self.empty_callback)
+        cv2.createTrackbar('Bgt min','Colour Filters',self.v_low,255,self.empty_callback)
+        cv2.createTrackbar('Bgt max','Colour Filters',self.v_high,255,self.empty_callback)
+        cv2.createTrackbar('Save','Colour Filters',0,10,self.save_callback)
 
-# default filter -- red balloon
-h_low = 154
-h_high = 195
-s_low = 75
-s_high = 255
-v_low = 63
-v_high = 191
-'''
+        while(True):
+            # get a frame
+            _, frame = camera.read()
+        
+            # Convert BGR to HSV
+            hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+            # get latest trackbar positions
+            self.h_low = cv2.getTrackbarPos('Hue min','Colour Filters')
+            self.h_high = cv2.getTrackbarPos('Hue max','Colour Filters')
+            self.s_low = cv2.getTrackbarPos('Sat min','Colour Filters')
+            self.s_high = cv2.getTrackbarPos('Sat max','Colour Filters')
+            self.v_low = cv2.getTrackbarPos('Bgt min','Colour Filters')
+            self.v_high = cv2.getTrackbarPos('Bgt max','Colour Filters')
+        
+            # use trackbar positions to filter image
+            colour_low = np.array([self.h_low,self.s_low,self.v_low])
+            colour_high = np.array([self.h_high,self.s_high,self.v_high])
+        
+            # Threshold the HSV image
+            mask = cv2.inRange(hsv_frame, colour_low, colour_high)
+        
+            # Erode
+            erode_kernel = np.ones((3,3),np.uint8);
+            eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
+        
+            # dilate
+            dilate_kernel = np.ones((10,10),np.uint8);
+            dilated_img = cv2.dilate(eroded_img,dilate_kernel,iterations = 1)
+        
+            # Bitwise-AND mask and original image
+            res = cv2.bitwise_and(frame,frame, mask=dilated_img)
+        
+            cv2.imshow('Original',frame)
+            cv2.imshow('Mask',mask)
+            cv2.imshow('Filtered Result',res)
+            
+            #cv2.imshow('grey_res',grey_res)
+            k = cv2.waitKey(5) & 0xFF
+            if k == 27:
+                break
 
-# create trackbars for color change
-cv2.namedWindow('Colour Filters')
-cv2.createTrackbar('Hue min','Colour Filters',h_low,255,empty_callback)
-cv2.createTrackbar('Hue max','Colour Filters',h_high,255,empty_callback)
-cv2.createTrackbar('Sat min','Colour Filters',s_low,255,empty_callback)
-cv2.createTrackbar('Sat max','Colour Filters',s_high,255,empty_callback)
-cv2.createTrackbar('Bgt min','Colour Filters',v_low,255,empty_callback)
-cv2.createTrackbar('Bgt max','Colour Filters',v_high,255,empty_callback)
-cv2.createTrackbar('Save','Colour Filters',0,10,save_callback)
+        # close all windows
+        cv2.destroyAllWindows()
 
-while(1):
-
-    # Take each frame
-    _, frame = video_capture.read()
-
-    # uncomment below if using simulated image
-    #veh_pos = (fake_balloon_latlonalt[0]-0.000110,fake_balloon_latlonalt[1],fake_balloon_latlonalt[2])
-    #frame = get_simulated_frame(veh_pos,0,0,0)
-
-    # Convert BGR to HSV
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-    # get latest trackbar positions
-    h_low = cv2.getTrackbarPos('Hue min','Colour Filters')
-    h_high = cv2.getTrackbarPos('Hue max','Colour Filters')
-    s_low = cv2.getTrackbarPos('Sat min','Colour Filters')
-    s_high = cv2.getTrackbarPos('Sat max','Colour Filters')
-    v_low = cv2.getTrackbarPos('Bgt min','Colour Filters')
-    v_high = cv2.getTrackbarPos('Bgt max','Colour Filters')
-
-    # use trackbar positions to filter image
-    colour_low = np.array([h_low,s_low,v_low])
-    colour_high = np.array([h_high,s_high,v_high])
-
-    # Threshold the HSV image
-    mask = cv2.inRange(hsv, colour_low, colour_high)
-
-    # Erode
-    erode_kernel = np.ones((3,3),np.uint8);
-    eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
-
-    # dilate
-    dilate_kernel = np.ones((10,10),np.uint8);
-    dilate_img = cv2.dilate(eroded_img,dilate_kernel,iterations = 1)
-
-    # Bitwise-AND mask and original image
-    res = cv2.bitwise_and(frame,frame, mask= dilate_img)
-
-    cv2.imshow('Original',frame)
-    cv2.imshow('Mask',mask)
-    cv2.imshow('Filtered Result',res)
-    
-    #cv2.imshow('grey_res',grey_res)
-    k = cv2.waitKey(5) & 0xFF
-    if k == 27:
-        break
-
-cv2.destroyAllWindows()
+# create global colour_finder object and run it
+colour_finder = ColourFinder()
+colour_finder.run()
