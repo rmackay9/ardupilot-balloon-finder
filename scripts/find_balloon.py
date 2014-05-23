@@ -16,6 +16,7 @@ import cv2
 import numpy
 import math
 import balloon_config
+from web_server import Webserver
 from balloon_video import balloon_video
 import balloon_utils
 from position_vector import PositionVector
@@ -229,6 +230,7 @@ class BalloonFinder(object):
 
             # display image
             cv2.imshow('frame',frame)
+            cv2.imwrite('/tmp/frame.jpg', frame)
 
             # write the frame
             video_writer.write(frame)
@@ -249,4 +251,5 @@ balloon_finder = BalloonFinder()
 
 # run a test if this file is being invoked directly from the command line
 if __name__ == "__main__":
+    web = Webserver(balloon_config.config.parser)
     balloon_finder.main()
