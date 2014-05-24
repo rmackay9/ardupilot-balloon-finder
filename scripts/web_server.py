@@ -29,11 +29,23 @@ class Config(object):
 
         return dict
 
-    def GET(self, id=None):
+    def handle_set(self, id, newval):
+        split = id.split('.')
+        section = split[0]
+        option = split[1]
+        self.config.set(section, option, newval)
+        return "%s has been set to %s" % (id, newval)
+
+    def GET(self, id=None, set=None):
         if id == None:
             return json.dumps(self.get_config())
         else:
-            return self.get_config()[id]    
+            # We allow the user to do 'sets' via a query param of the form ?set=value
+            #setparam = cherrypy.request.params.get('set')
+            if set != None:
+                return self.handle_set(id, set)
+            else:
+                return self.get_config()[id]    
 
 class Image(object):
 
@@ -44,6 +56,7 @@ class Image(object):
         self.image_callback = image_callback
 
     def GET(self, id=None):
+        """Write our image to a temp file, then give it back to the user"""
         cv2.imwrite(self.image_file, self.image_callback())
         return serve_file(self.image_file, content_type='image/jpeg')
 
