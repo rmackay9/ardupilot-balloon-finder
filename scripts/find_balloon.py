@@ -15,14 +15,11 @@ import time
 import cv2
 import numpy
 import math
-import tempfile
 import balloon_config
 from web_server import Webserver
 from balloon_video import balloon_video
 import balloon_utils
 from position_vector import PositionVector
-
-image_file = tempfile.mktemp(suffix=".jpg")
 
 class BalloonFinder(object):
 
@@ -39,6 +36,8 @@ class BalloonFinder(object):
         self.filter_high = numpy.array([balloon_config.config.get_integer('balloon','h-high',195),
                                         balloon_config.config.get_integer('balloon','s-high',255),
                                         balloon_config.config.get_integer('balloon','v-high',191)])
+
+        self.frame = None
 
     # analyse_frame - look for balloon in image using HoughCircle detector
     #    returns:
@@ -227,13 +226,13 @@ class BalloonFinder(object):
 
             # Take each frame
             _, frame = camera.read()
+            self.frame = frame
 
             # is there the x & y position in frame of the largest balloon
             found_in_image, xpos, ypos, size = self.analyse_frame_for_blob(frame)
 
             # display image
             cv2.imshow('frame',frame)
-            cv2.imwrite(image_file, frame)
 
             # write the frame
             video_writer.write(frame)
@@ -243,6 +242,8 @@ class BalloonFinder(object):
             if k == 27:
                 break
 
+        print "exiting..."
+        
         # uncomment line below if window with real-time video was displayed
         cv2.destroyAllWindows()
 
@@ -254,5 +255,5 @@ balloon_finder = BalloonFinder()
 
 # run a test if this file is being invoked directly from the command line
 if __name__ == "__main__":
-    web = Webserver(balloon_config.config.parser, image_file)
+    web = Webserver(balloon_config.config.parser, (lambda : balloon_finder.frame))
     balloon_finder.main()

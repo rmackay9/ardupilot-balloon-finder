@@ -1,6 +1,8 @@
 import cherrypy
 import json
 import os
+import cv2
+import tempfile
 from cherrypy.lib.static import serve_file
 
 
@@ -37,24 +39,24 @@ class Image(object):
 
     exposed = True
 
-    def __init__(self, image_file):
-        self.image_file = os.path.abspath(image_file)
-        pass
+    def __init__(self, image_callback):
+        self.image_file = tempfile.mktemp(suffix=".jpg")
+        self.image_callback = image_callback
 
     def GET(self, id=None):
-        print "handling image"
+        cv2.imwrite(self.image_file, self.image_callback())
         return serve_file(self.image_file, content_type='image/jpeg')
 
 class Static:
     exposed = True
 
 class Webserver(object):
-    def __init__(self, config_parser, image_file):
+    def __init__(self, config_parser, image_callback):
         cherrypy.tree.mount(
             Config(config_parser), '/config',
             {'/': {'request.dispatch': cherrypy.dispatch.MethodDispatcher()} } )
         cherrypy.tree.mount(
-            Image(image_file), '/image',
+            Image(image_callback), '/image',
             {'/': {'request.dispatch': cherrypy.dispatch.MethodDispatcher()} } )
 
 
