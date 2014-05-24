@@ -67,6 +67,9 @@ class Webserver(object):
         cherrypy.engine.start()
         # cherrypy.engine.block()
 
+    def close(self):
+        cherrypy.engine.stop()
+
 if __name__ == '__main__':
 
     Webserver()

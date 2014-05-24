@@ -215,6 +215,8 @@ class BalloonFinder(object):
 
     # main - tests the BalloonFinder class
     def main(self):
+        web = Webserver(balloon_config.config.parser, (lambda : self.frame))
+
         camera = balloon_video.get_camera()
         video_writer = balloon_video.open_video_writer()
 
@@ -243,7 +245,8 @@ class BalloonFinder(object):
                 break
 
         print "exiting..."
-        
+        web.close()
+
         # uncomment line below if window with real-time video was displayed
         cv2.destroyAllWindows()
 
@@ -255,5 +258,4 @@ balloon_finder = BalloonFinder()
 
 # run a test if this file is being invoked directly from the command line
 if __name__ == "__main__":
-    web = Webserver(balloon_config.config.parser, (lambda : balloon_finder.frame))
     balloon_finder.main()
