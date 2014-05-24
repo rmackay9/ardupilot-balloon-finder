@@ -14,12 +14,6 @@ class Config(object):
     def __init__(self, config_parser):
         self.config = config_parser
 
-    @cherrypy.expose
-    def image(self, blah):
-        print "handling image"
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        return serve_file(os.path.join(current_dir, 'raw.py'), content_type='text/text')
-
     def get_config(self):
         """ Return a config as a dictionary"""
         dict = {}
