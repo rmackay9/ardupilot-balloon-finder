@@ -55,7 +55,21 @@ class Image(object):
         return serve_file(self.image_file, content_type='image/jpeg')
 
 class Static:
-    exposed = True
+    def index(self):
+        html = """
+        <html>
+            <head>
+                <META HTTP-EQUIV="refresh" CONTENT="1">
+            </head>
+            <body>
+                <h1>AVC Red balloon ass kicker</h1>
+                <img src="/image" />
+            </body>
+        </html>
+        """
+        return html
+
+    index.exposed = True
 
 class Webserver(object):
     def __init__(self, config_parser, image_callback):
@@ -65,10 +79,11 @@ class Webserver(object):
         cherrypy.tree.mount(
             Image(image_callback), '/image',
             {'/': {'request.dispatch': cherrypy.dispatch.MethodDispatcher()} } )
-
+        cherrypy.tree.mount(Static(), '/')
 
         cherrypy.config.update({
-                         'server.socket_port': 8081 
+                         'server.socket_port': 8081,
+                         'log.screen': None
                         }) 
 
         cherrypy.engine.start()
