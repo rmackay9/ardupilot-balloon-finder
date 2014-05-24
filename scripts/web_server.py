@@ -37,24 +37,24 @@ class Image(object):
 
     exposed = True
 
-    def __init__(self):
+    def __init__(self, image_file):
+        self.image_file = os.path.abspath(image_file)
         pass
 
     def GET(self, id=None):
         print "handling image"
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        return serve_file(os.path.join(current_dir, '/tmp/frame.jpg'), content_type='image/jpeg')
+        return serve_file(self.image_file, content_type='image/jpeg')
 
 class Static:
     exposed = True
 
 class Webserver(object):
-    def __init__(self, config_parser):
+    def __init__(self, config_parser, image_file):
         cherrypy.tree.mount(
             Config(config_parser), '/config',
             {'/': {'request.dispatch': cherrypy.dispatch.MethodDispatcher()} } )
         cherrypy.tree.mount(
-            Image(), '/image',
+            Image(image_file), '/image',
             {'/': {'request.dispatch': cherrypy.dispatch.MethodDispatcher()} } )
 
 

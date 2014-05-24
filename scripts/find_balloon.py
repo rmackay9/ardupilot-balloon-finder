@@ -15,11 +15,14 @@ import time
 import cv2
 import numpy
 import math
+import tempfile
 import balloon_config
 from web_server import Webserver
 from balloon_video import balloon_video
 import balloon_utils
 from position_vector import PositionVector
+
+image_file = tempfile.mktemp(suffix=".jpg")
 
 class BalloonFinder(object):
 
@@ -230,7 +233,7 @@ class BalloonFinder(object):
 
             # display image
             cv2.imshow('frame',frame)
-            cv2.imwrite('/tmp/frame.jpg', frame)
+            cv2.imwrite(image_file, frame)
 
             # write the frame
             video_writer.write(frame)
@@ -251,5 +254,5 @@ balloon_finder = BalloonFinder()
 
 # run a test if this file is being invoked directly from the command line
 if __name__ == "__main__":
-    web = Webserver(balloon_config.config.parser)
+    web = Webserver(balloon_config.config.parser, image_file)
     balloon_finder.main()
