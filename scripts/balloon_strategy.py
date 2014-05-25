@@ -45,6 +45,18 @@ class BalloonStrategy(object):
         # Our vehicle (we assume the user is trying to control the virst vehicle attached to the GCS)
         self.vehicle = self.api.get_vehicles()[0]
 
+        # initialised flag
+        self.home_initialised = False
+        # timer to intermittently check for home position
+        self.last_home_check = time.time()
+
+        # vehicle mission
+        self.mission_cmds = None
+
+        # we are not in control of vehicle
+        self.controlling_vehicle = False
+        self.last_status_check = time.time()
+
         # vehicle position captured at time camera image was captured
         self.vehicle_pos = None
 
@@ -75,6 +87,81 @@ class BalloonStrategy(object):
         if not self.use_simulator:
             self.camera = get_camera()
         self.writer = balloon_video.open_video_writer()
+
+    # fetch_mission - fetch mission from flight controller
+    def fetch_mission(self):
+        # download the vehicle waypoints
+        self.mission_cmds = self.vehicle.commands
+        self.mission_cmds.download()
+        self.mission_cmds.wait_valid()
+
+    # check home - intermittently checks for changes to the home location
+    def check_home(self):
+
+        # return immediately if home has already been initialised
+        if self.home_initialised:
+            return True
+
+        # check for home no more than once every two seconds
+        if (time.time() - self.last_home_check > 2):
+
+            # update that we have performed a status check
+            self.last_home_check = time.time()
+
+            # download the vehicle waypoints if we don't have them already
+            if self.mission_cmds is None:
+                self.fetch_mission()
+                return
+
+            # get the home lat and lon
+            home_lat = self.mission_cmds[0].x
+            home_lon = self.mission_cmds[0].y
+
+            # sanity check the home position
+            if home_lat <> 0 and home_lon <> 0:
+                PositionVector.set_home_location(Location(home_lat,home_lon,0))
+                self.home_initialised = True
+
+            # To-Do: if we wish to have the same home position as the flight controller
+            # we must download the home waypoint again whenever the vehicle is armed
+
+        # return whether home has been initialised or not
+        return self.home_initialised
+
+    # check_status - poles vehicle' status to determine if we are in control of vehicle or not
+    def check_status(self):
+
+        # check status no more than once every two seconds
+        if (time.time() - self.last_status_check > 2):
+
+            # update that we have performed a status check
+            self.last_status_check = time.time()
+
+            # we are active in guided mode
+            if self.vehicle.mode.name == "GUIDED":
+                self.controlling_vehicle = True
+                return
+
+            # download the vehicle waypoints if we don't have them already
+            # To-Do: do not load waypoints if vehicle is armed
+            if self.mission_cmds is None:
+                self.fetch_mission()
+                return
+
+            # Check for Auto mode and executing Nav-Guided command
+            if self.vehicle.mode.name == "AUTO":
+
+                # get active command number and mavlink id
+                active_command = self.vehicle.commands.next
+                active_command_id = self.vehicle.commands[active_command].command
+
+                # ninety is the MAVLink id for Nav-Guided commands
+                if active_command_id == 90:
+                    self.controlling_vehicle = True
+                    return    
+        
+            # if we got here then we are not in control
+            self.controlling_vehicle = False
 
     def get_frame(self):
         if self.use_simulator:
@@ -116,8 +203,8 @@ class BalloonStrategy(object):
             balloon_distance = get_distance_from_pixels(size, balloon_finder.balloon_radius_expected)
 
             # debug
-            if self.debug:
-                print "Balloon found at heading %f, and %f degrees up, dist:%f meters" % (yaw_dir, pitch_dir, balloon_distance)
+            #if self.debug:
+            #    print "Balloon found at heading %f, and %f degrees up, dist:%f meters" % (yaw_dir, pitch_dir, balloon_distance)
 
             # updated estimated balloon position
             self.balloon_pos = balloon_finder.project_position(self.vehicle_pos, math.radians(pitch_dir),math.radians(yaw_dir),balloon_distance)
@@ -130,10 +217,8 @@ class BalloonStrategy(object):
 
     def goto_balloon(self):
 
-        # exit immediately if not in guided mode
-        if self.vehicle.mode.name != "GUIDED":
-            #if self.debug:
-            #    print "Not in Guided"
+        # exit immediately if we are not controlling the vehicle
+        if not self.controlling_vehicle:
             return
 
         # balloon to control whether we update target location to autopilot
@@ -184,8 +269,8 @@ class BalloonStrategy(object):
 
                 # if balloon has moved more than the radius of the balloon we adjust target
                 if distance_balloon_moved > 0.5:
-                    if self.debug:
-                        print "Dist Balloon Moved: %f" % distance_balloon_moved
+                    #if self.debug:
+                    #    print "Dist Balloon Moved: %f" % distance_balloon_moved
 
                     # if balloon has apparently moved less than 20m we guess it is the same balloon
                     if distance_balloon_moved < 20:
@@ -200,8 +285,8 @@ class BalloonStrategy(object):
                         if (target_loc.lat <> self.guided_target_loc.lat or target_loc.lon <> self.guided_target_loc.lon or dalt > 0.10):
                             self.guided_target_loc = target_loc
                             update_target = True
-                            if self.debug:
-                                print "Moved target a little: %f" % (distance_balloon_moved * 0.1)
+                            #if self.debug:
+                            #    print "Moved target a little: %f" % (distance_balloon_moved * 0.1)
 
                     # if balloon has moved more than 20m we guess it is a different balloon
                     else:
@@ -229,16 +314,22 @@ class BalloonStrategy(object):
 
     def run(self):
         while not self.api.exit:
-            # To-Do: if our overall timeout has elapsed return control to autopilot
 
-            # look for balloon in image
-            self.analyze_image()
+            # only process images once home has been initialised
+            if self.check_home():
+    
+                # check if we are controlling the vehicle
+                self.check_status()
 
-            # move towards balloon
-            self.goto_balloon()
-
+                # look for balloon in image
+                self.analyze_image()
+    
+                # move towards balloon
+                self.goto_balloon()
+    
             # Don't suck up too much CPU, only process a new image occasionally
             time.sleep(0.05)
+
         self.camera.release()
 
     # complete - balloon strategy has somehow completed so return control to the autopilot
