@@ -1,5 +1,6 @@
 import time
 import math
+from pymavlink import mavutil
 from droneapi.lib import VehicleMode, Location
 import balloon_config
 from balloon_video import balloon_video
@@ -50,6 +51,9 @@ class BalloonStrategy(object):
         # timer to intermittently check for home position
         self.last_home_check = time.time()
 
+        # searching flag
+        self.searching = True
+
         # vehicle mission
         self.mission_cmds = None
 
@@ -66,6 +70,7 @@ class BalloonStrategy(object):
         # target location we are flying to (if we have one)
         self.guided_target_pos = None
         self.guided_target_loc = None
+        self.last_target_update = time.time()   # time of the last target update sent to the flight controller
 
         # time the target balloon was last spotted
         self.last_spotted_time = 0
@@ -108,16 +113,26 @@ class BalloonStrategy(object):
             # update that we have performed a status check
             self.last_home_check = time.time()
 
+            # ensure the vehicle's position is known
+            if self.vehicle.location is None:
+                return False
+            if self.vehicle.location.lat is None or self.vehicle.location.lon is None or self.vehicle.location.alt is None:
+                return False
+
             # download the vehicle waypoints if we don't have them already
             if self.mission_cmds is None:
                 self.fetch_mission()
-                return
+                return False
 
             # get the home lat and lon
             home_lat = self.mission_cmds[0].x
             home_lon = self.mission_cmds[0].y
 
             # sanity check the home position
+            if home_lat is None or home_lon is None:
+                return False
+
+            # sanity check again and set home position
             if home_lat <> 0 and home_lon <> 0:
                 PositionVector.set_home_location(Location(home_lat,home_lon,0))
                 self.home_initialised = True
@@ -163,6 +178,55 @@ class BalloonStrategy(object):
             # if we got here then we are not in control
             self.controlling_vehicle = False
 
+    # condition_yaw - send condition_yaw mavlink command to vehicle so it points at specified heading
+    def condition_yaw(self, heading):
+        # create the CONDITION_YAW command
+        msg = self.vehicle.message_factory.mission_item_encode(0, 0,  # target system, target component
+                                                     0,     # sequence
+                                                     mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, # frame
+                                                     mavutil.mavlink.MAV_CMD_CONDITION_YAW,         # command
+                                                     2, # current - set to 2 to make it a guided command
+                                                     0, # auto continue
+                                                     heading, 0, 0, 0, 0, 0, 0) # param 1 ~ 7
+        # send command to vehicle
+        self.vehicle.send_mavlink(msg)
+        self.vehicle.flush()
+
+    # advance_current_cmd - ask vehicle to advance to next command (i.e. abort current command)
+    def advance_current_cmd(self):
+
+        # exit immediately if we are not in AUTO mode or not controlling the vehicle
+        if not self.vehicle.mode.name == "AUTO" or not self.controlling_vehicle:
+            return
+
+        # download the vehicle waypoints if we don't have them already
+        if self.mission_cmds is None:
+            self.fetch_mission()
+
+        # get active command
+        active_command = self.vehicle.commands.next
+
+        # ensure there is one more command at least
+        if (self.vehicle.commands.count > active_command):
+            # create the MISSION_SET_CURRENT command
+            msg = self.vehicle.message_factory.mission_set_current_encode(0, 0, active_command+1) # target system, target component, sequence
+            # send command to vehicle
+            self.vehicle.send_mavlink(msg)
+            self.vehicle.flush()
+
+    # search_with_yaw - update yaw to search for balloon
+    def search_with_yaw(self):
+
+        # exit immediately if we are not controlling the vehicle
+        if not self.controlling_vehicle or not self.searching:
+            return
+
+        # send yaw command
+        self.condition_yaw(90)
+
+        # turn off search
+        self.searching = False
+
     def get_frame(self):
         if self.use_simulator:
             veh_pos = PositionVector.get_from_location(self.vehicle.location)
@@ -171,6 +235,7 @@ class BalloonStrategy(object):
             _, frame = self.camera.read()
         return frame
 
+    # get image from camera and look for balloon
     def analyze_image(self):
 
         # record time
@@ -221,11 +286,15 @@ class BalloonStrategy(object):
         if not self.controlling_vehicle:
             return
 
-        # balloon to control whether we update target location to autopilot
-        update_target = False
-
         # get current time
         now = time.time()
+
+        # exit immediately if it's been too soon since the last update
+        if (now - self.last_target_update) < 2.0:
+            return;
+
+        # balloon to control whether we update target location to autopilot
+        update_target = False
 
         # if we have not seen the balloon in our most recent image
         if self.balloon_pos is None:
@@ -308,9 +377,10 @@ class BalloonStrategy(object):
         if update_target:
             self.vehicle.commands.goto(self.guided_target_loc)
             self.vehicle.flush()
-            if self.debug:
-                print "Veh %s" % self.vehicle.location
-                print "Going to: %s" % self.guided_target_loc
+            self.last_target_update = time.time()
+            #if self.debug:
+            #    print "Veh %s" % self.vehicle.location
+            #    print "Going to: %s" % self.guided_target_loc
 
     def run(self):
         while not self.api.exit:
@@ -324,6 +394,9 @@ class BalloonStrategy(object):
                 # look for balloon in image
                 self.analyze_image()
     
+                # search for balloon
+                self.search_with_yaw()
+
                 # move towards balloon
                 self.goto_balloon()
     
@@ -347,6 +420,11 @@ class BalloonStrategy(object):
         if self.vehicle.mode.name == "GUIDED":
             self.vehicle.mode = VehicleMode("LOITER")
             self.vehicle.flush()
+
+        # if in AUTO move to next command
+        if self.vehicle.mode.name == "AUTO":
+            self.advance_current_cmd();
+
         return
 
 strat = BalloonStrategy()
