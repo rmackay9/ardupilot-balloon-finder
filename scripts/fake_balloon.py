@@ -28,9 +28,9 @@ class BalloonSimulator(object):
     def __init__(self):
 
         # read fake balloon location from config file
-        self.fake_balloon_location = Location(balloon_config.config.get_float('fake-balloon', 'lat',-35.362938),
-                                              balloon_config.config.get_float('fake-balloon', 'lon',149.164980),
-                                              balloon_config.config.get_float('fake-balloon', 'alt',1))
+        self.fake_balloon_location = Location(balloon_config.config.get_float('fake-balloon', 'lat',-35.363274),
+                                              balloon_config.config.get_float('fake-balloon', 'lon',149.164630),
+                                              balloon_config.config.get_float('fake-balloon', 'alt',15))
 
         # fake balloon's colour is mid way between colour filter's low and high values
         h = (balloon_finder.filter_low[0] + balloon_finder.filter_high[0]) / 2
