@@ -4,7 +4,7 @@ from pymavlink import mavutil
 from droneapi.lib import VehicleMode, Location
 import balloon_config
 from balloon_video import balloon_video
-from balloon_utils import get_distance_from_pixels
+from balloon_utils import get_distance_from_pixels, wrap_PI
 from position_vector import PositionVector
 from find_balloon import balloon_finder
 from fake_balloon import balloon_sim
@@ -51,8 +51,13 @@ class BalloonStrategy(object):
         # timer to intermittently check for home position
         self.last_home_check = time.time()
 
-        # searching flag
-        self.searching = True
+        # search variables
+        self.searching = False
+        self.search_complete = False
+        self.search_closest_balloon = None
+        self.search_start_time = None
+        self.search_start_heading = None
+        self.search_heading_change = None
 
         # vehicle mission
         self.mission_cmds = None
@@ -154,7 +159,9 @@ class BalloonStrategy(object):
 
             # we are active in guided mode
             if self.vehicle.mode.name == "GUIDED":
-                self.controlling_vehicle = True
+                if not self.controlling_vehicle:
+                    self.controlling_vehicle = True
+                    self.start_search()
                 return
 
             # download the vehicle waypoints if we don't have them already
@@ -172,7 +179,9 @@ class BalloonStrategy(object):
 
                 # ninety is the MAVLink id for Nav-Guided commands
                 if active_command_id == 90:
-                    self.controlling_vehicle = True
+                    if not self.controlling_vehicle:
+                        self.controlling_vehicle = True
+                        self.start_search()
                     return    
         
             # if we got here then we are not in control
@@ -213,19 +222,77 @@ class BalloonStrategy(object):
             # send command to vehicle
             self.vehicle.send_mavlink(msg)
             self.vehicle.flush()
+        else:
+            print "Failed to advance command"
 
-    # search_with_yaw - update yaw to search for balloon
-    def search_with_yaw(self):
+    # start_search - start search for balloon
+    def start_search(self):
+        # exit immediately if we are not controlling the vehicle
+        if not self.controlling_vehicle:
+            return
+        # initialise search variables
+        self.searching = True
+        self.search_complete = False
+        self.search_closest_balloon = None
+        self.search_start_time = time.time()
+        self.search_start_heading = self.vehicle.attitude.yaw
+        self.search_target_heading = self.search_start_heading
+        self.search_total_angle = 0
+
+    # search - spin vehicle looking for balloon
+    def search_for_balloon(self):
 
         # exit immediately if we are not controlling the vehicle
-        if not self.controlling_vehicle or not self.searching:
+        if not self.controlling_vehicle or not self.searching or self.vehicle_pos is None:
             return
 
-        # send yaw command
-        self.condition_yaw(90)
+        # check if we're still searching for balloon
+        if not self.search_complete:
+            # check if we have seen a balloon
+            if not self.balloon_pos is None:
+                # if this is the first balloon we've seen store it's position as the closest
+                if self.search_closest_balloon is None:
+                    self.search_closest_balloon = self.balloon_pos
+                else:
+                    # check distance to new balloon vs previous closest balloon and store if closer
+                    dist_prev = PositionVector.get_distance_xyz(self.vehicle_pos, self.search_closest_balloon)
+                    dist_new = PositionVector.get_distance_xyz(self.vehicle_pos, self.balloon_pos)
+                    if dist_new < dist_prev:
+                        self.search_closest_balloon = self.balloon_pos
 
-        # turn off search
-        self.searching = False
+            # check yaw is close to target
+            if math.fabs(wrap_PI(self.vehicle.attitude.yaw - self.search_target_heading)) < math.radians(20):
+                # increase yaw target
+                self.search_target_heading = self.search_target_heading + math.radians(10)
+                self.search_total_angle = self.search_total_angle + math.radians(10)
+                # send yaw heading
+                self.condition_yaw(math.degrees(self.search_target_heading))
+
+                # end search if we've gone all the way around
+                if self.search_total_angle >= math.radians(360):
+                    # record search as complete
+                    self.search_complete = True
+
+                    # if we never saw a balloon then just complete (return control to user or mission)
+                    if self.search_closest_balloon is None:
+                        self.searching = False
+                        self.complete()
+                    else:
+                        # set target heading to closest balloon
+                        self.search_target_heading = PositionVector.get_bearing(self.vehicle_pos, self.search_closest_balloon)
+                        # send yaw heading
+                        self.condition_yaw(math.degrees(self.search_target_heading))
+
+        # we have completed search and are spinning back towards closest balloon
+        else:
+            # check yaw is close to target
+            if math.fabs(wrap_PI(self.vehicle.attitude.yaw - self.search_target_heading)) < math.radians(5):
+                # if the balloon is visible then stop searching
+                if not self.balloon_pos is None:
+                    self.searching = False
+                else:
+                    # we somehow haven't found the balloon when we've turned back to find it so begin search again
+                    self.start_search()
 
     def get_frame(self):
         if self.use_simulator:
@@ -394,11 +461,13 @@ class BalloonStrategy(object):
                 # look for balloon in image
                 self.analyze_image()
     
-                # search for balloon
-                self.search_with_yaw()
-
-                # move towards balloon
-                self.goto_balloon()
+                # search or move towards balloon
+                if self.searching:
+                    # search for balloon
+                    self.search_for_balloon()
+                else:
+                    # move towards balloon
+                    self.goto_balloon()
     
             # Don't suck up too much CPU, only process a new image occasionally
             time.sleep(0.05)
@@ -410,6 +479,11 @@ class BalloonStrategy(object):
         # debug 
         if self.debug:
             print "Complete!"
+
+        # record that we are not in control of vehicle
+        # To-Do: this could be reset back to True if check runs too soon after this
+        self.controlling_vehicle = False
+
         # reset all variables
         self.balloon_loc = None
         self.guided_target_loc = None
