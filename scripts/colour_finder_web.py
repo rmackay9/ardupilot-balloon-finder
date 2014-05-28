@@ -5,7 +5,7 @@
 #
 #   Access the final image at http://<ipaddress>:8081
 #
-#   Adjust the colour filters directly in the balloon_finder.cnf file
+#   Adjust the colour filters directly in the balloon_config.cnf file
 #       h-low : hue min
 #       h-high: hue max
 #       s-low : saturation min
@@ -52,6 +52,9 @@ class ColourFinder:
 
         # check at least one second has passed since the last read
         if (force_read or (time.time() - self.config_last_read > 1)):
+            # re-read the config file
+            balloon_config.config.read()
+
             # load colour filters from config file
             self.h_low = balloon_config.config.get_integer('balloon','h-low',BalloonFinder.default_h_low)
             self.h_high = balloon_config.config.get_integer('balloon','h-high',BalloonFinder.default_h_high)
