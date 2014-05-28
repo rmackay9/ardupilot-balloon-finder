@@ -48,6 +48,9 @@ class BalloonSimulator(object):
         self.background_sky_colour_bgr = (232, 228, 227)
         self.background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
 
+        # last iterations balloon radius
+        self.last_balloon_radius = 0
+
 
     # get_background - returns a background image given a roll and pitch angle
     #     vehicle_roll and pitch are in radians
@@ -100,6 +103,9 @@ class BalloonSimulator(object):
         dist_to_balloon_xyz = PositionVector.get_distance_xyz(veh_pos, balloon_pos)
         balloon_radius = balloon_utils.get_pixels_from_distance(dist_to_balloon_xyz, balloon_finder.balloon_radius_expected)
 
+        # store balloon radius
+        self.last_balloon_radius = balloon_radius
+
         # draw balloon
         cv2.circle(frame,(balloon_x,balloon_y), balloon_radius, self.fake_balloon_colour_bgr_scalar, -1)
 
@@ -123,10 +129,10 @@ class BalloonSimulator(object):
         fake_balloon_pos = PositionVector.get_from_location(self.fake_balloon_location)
 
         # vehicle attitude and position
-        veh_pos = PositionVector(0,0,0) # at home location
-        veh_roll = math.radians(10)     # leaned right 10 deg
+        veh_pos = PositionVector(0,0,fake_balloon_pos.z) # at home location
+        veh_roll = math.radians(0)     # leaned right 10 deg
         veh_pitch = math.radians(0)     # pitched back at 0 deg
-        veh_yaw = math.radians(270)     # facing west
+        veh_yaw = PositionVector.get_bearing(veh_pos,fake_balloon_pos)  # facing towards fake balloon
 
         # display positions from home
         print "Vehicle %s" % veh_pos
@@ -138,11 +144,17 @@ class BalloonSimulator(object):
         while(True):
             # move vehicle towards balloon
             veh_pos = veh_pos + (fake_balloon_pos - veh_pos) * 0.01
-            
-            print "Veh %s" % veh_pos
 
             # regenerate frame
             img = self.get_simulated_frame(veh_pos, veh_roll, veh_pitch, veh_yaw)
+
+            # look for balloon in image using blob detector        
+            found_in_image, xpos, ypos, size = balloon_finder.analyse_frame_for_blob(img)
+
+            # display actual vs real distance
+            dist_actual = PositionVector.get_distance_xyz(veh_pos, fake_balloon_pos)
+            dist_est = balloon_utils.get_distance_from_pixels(size, balloon_finder.balloon_radius_expected)
+            print "Dist Est:%f  Act:%f   Size Est:%f  Act:%f" % (dist_est, dist_actual, size, self.last_balloon_radius) 
 
             # show image
             cv2.imshow("fake balloon", img)
