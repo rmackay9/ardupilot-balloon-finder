@@ -23,19 +23,27 @@ from position_vector import PositionVector
 
 class BalloonFinder(object):
 
+    # default colours for red balloon
+    default_h_low = 154
+    default_h_high = 195
+    default_s_low = 75
+    default_s_high = 255
+    default_v_low = 63
+    default_v_high = 191
+    
     def __init__(self):
 
         # define expected balloon radius in meters
         self.balloon_radius_expected = balloon_config.config.get_float('balloon','radius_cm',0.5)
 
         # colour filters for balloon
-        self.filter_low = numpy.array([balloon_config.config.get_integer('balloon','h-low',154),
-                                       balloon_config.config.get_integer('balloon','s-low',75),
-                                       balloon_config.config.get_integer('balloon','v-low',63)])
+        self.filter_low = numpy.array([balloon_config.config.get_integer('balloon','h-low',BalloonFinder.default_h_low),
+                                       balloon_config.config.get_integer('balloon','s-low',BalloonFinder.default_s_low),
+                                       balloon_config.config.get_integer('balloon','v-low',BalloonFinder.default_v_low)])
 
-        self.filter_high = numpy.array([balloon_config.config.get_integer('balloon','h-high',195),
-                                        balloon_config.config.get_integer('balloon','s-high',255),
-                                        balloon_config.config.get_integer('balloon','v-high',191)])
+        self.filter_high = numpy.array([balloon_config.config.get_integer('balloon','h-high',BalloonFinder.default_h_high),
+                                        balloon_config.config.get_integer('balloon','s-high',BalloonFinder.default_s_high),
+                                        balloon_config.config.get_integer('balloon','v-high',BalloonFinder.default_v_high)])
 
         self.frame = None
 
