@@ -64,6 +64,12 @@ class Static:
             <body>
                 <h1>AVC Red balloon ass kicker</h1>
                 <img src="/image" />
+                <!-- <form action="/process_form/" method="post">
+                    <h2>Config</h2>
+                    config1.foo <input type="text" name="login" value="login" /><br>
+                    config1.foo <input type="text" name="login" value="login" />
+                    <input type="submit" />
+                </form> -->
             </body>
         </html>
         """
@@ -83,6 +89,7 @@ class Webserver(object):
 
         cherrypy.config.update({
                          'server.socket_port': 8081,
+                         'server.socket_host': '0.0.0.0',
                          'log.screen': None
                         }) 
 
