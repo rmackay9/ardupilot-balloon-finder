@@ -190,13 +190,13 @@ class BalloonFinder(object):
     # to an estimate of the balloon's actual earth-frame location
     #
 
-    # pixels_to_direction - converts a pixel location and vehicle attitude to an earth-frame direction vector
+    # pixels_to_direction - converts a pixel location and vehicle attitude to an earth-frame pitch angle and heading
     #    pixels_x should be a number from 0 ~ img_width
     #    pixels_y should be a number from 0 ~ img_height
     #    roll_in_radians, pitch_in_radians, yaw_in_radiasn should be the vehicle's roll, pitch and yaw angles in radians
     #    returns vector towards target:
-    #        vertical angle (-ve = down, +ve = upwards) in radians
-    #        absolute heading (in radians)
+    #        vertical angle (-ve = down, +ve = upwards) in degrees
+    #        absolute heading (in degrees))
     def pixels_to_direction(self, pixels_x, pixels_y, vehicle_roll, vehicle_pitch, vehicle_yaw):
         # rotate position by +ve roll angle
         x_rotated, y_rotated = balloon_utils.rotate_xy(pixels_x - balloon_video.img_width/2, pixels_y - balloon_video.img_height/2, vehicle_roll)
@@ -220,6 +220,17 @@ class BalloonFinder(object):
         dz = distance * math.sin(pitch)
         ret = PositionVector(origin.x + dx,origin.y + dy, origin.z + dz)
         return ret
+
+    # get_ef_velocity_vector - calculates the earth frame velocity vector in m/s given a yaw angle, pitch angle and speed in m/s
+    #    pitch : earth frame pitch angle from vehicle to object.  +ve = above vehicle, -ve = below vehicle
+    #    yaw : earth frame heading.  +ve = clockwise from north, -ve = counter clockwise from north
+    #    velocity : scalar velocity in m/s
+    def get_ef_velocity_vector(self, pitch, yaw, speed):
+        cos_pitch = math.cos(pitch)
+        x = speed * math.cos(yaw) * cos_pitch
+        y = speed * math.sin(yaw) * cos_pitch
+        z = speed * math.sin(pitch)
+        return x,y,z
 
     # main - tests the BalloonFinder class
     def main(self):
