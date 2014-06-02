@@ -47,79 +47,13 @@ class BalloonFinder(object):
 
         self.frame = None
 
-    # analyse_frame - look for balloon in image using HoughCircle detector
-    #    returns:
-    #        found: boolean which is true if balloon if found
-    #        x: an integer holding the horizontal position in pixels of the center of the balloon on image  
-    #        y: an integer holding the vertical position in pixels of the center of the balloon on image
-    #        radius: a float(?) holding the radius of the balloon in pixels 
-    def analyse_frame(self,frame):
-        balloon_found = False
-        balloon_x = 0
-        balloon_y = 0
-        balloon_radius = 0
-    
-        # Convert BGR to HSV
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    
-        # Threshold the HSV image
-        mask = cv2.inRange(hsv, self.filter_low, self.filter_high)
-    
-        # Erode
-        erode_kernel = numpy.ones((3,3),numpy.uint8);
-        eroded_img = cv2.erode(mask,erode_kernel,iterations = 1)
-    
-        # dilate
-        dilate_kernel = numpy.ones((10,10),numpy.uint8);
-        dilate_img = cv2.dilate(eroded_img,dilate_kernel,iterations = 1)
-    
-        # Bitwise-AND mask and original image
-        res = cv2.bitwise_and(frame,frame, mask= dilate_img)
-    
-        # create a grey version of the result
-        grey_res = cv2.cvtColor(res,cv2.COLOR_BGR2GRAY)
-    
-        # blur it to reduce false circles
-        grey_res = cv2.medianBlur(grey_res,5)
-    
-        circles = cv2.HoughCircles(grey_res,cv2.cv.CV_HOUGH_GRADIENT,1,50,param1=50,param2=30,minRadius=0,maxRadius=0)
-    
-        # check if any circles were found
-        if not (circles is None):
-    
-            # flag we have found at least one circle
-            balloon_found = True
-    
-            # reset size and number of largest circle
-            biggest_radius = 0
-            biggest_circle_num = 0
-    
-            # find largest circle
-            circles = numpy.uint16(numpy.around(circles))
-            for i in circles[0,:]:
-                if (i[2] > biggest_radius):
-                    biggest_circle = i
-                    biggest_radius = i[2]
-    
-            # draw circle around the largest circle
-            cv2.circle(frame,(biggest_circle[0],biggest_circle[1]),biggest_circle[2],(0,255,0),2)
-           # draw the center of the circle
-            cv2.circle(frame,(biggest_circle[0],biggest_circle[1]),2,(0,0,255),3)
-    
-            balloon_x = biggest_circle[0]
-            balloon_y = biggest_circle[1]
-            balloon_radius = biggest_circle[2]
-    
-        # return results
-        return balloon_found, balloon_x, balloon_y, balloon_radius
-
-    # analyse_frame_for_blob - look for balloon in image using SimpleBlobDetector
+    # analyse_frame - look for balloon in image using SimpleBlobDetector
     #    returns:
     #        found: boolean which is true if balloon if found
     #        x: an integer holding the horizontal position in pixels of the center of the balloon on image  
     #        y: an integer holding the vertical position in pixels of the center of the balloon on image
     #        radius: a float(?) holding the radius of the balloon in pixels
-    def analyse_frame_for_blob(self,frame):
+    def analyse_frame(self,frame):
         balloon_found = False
         balloon_x = 0
         balloon_y = 0
@@ -250,7 +184,7 @@ class BalloonFinder(object):
             self.frame = frame
 
             # is there the x & y position in frame of the largest balloon
-            found_in_image, xpos, ypos, size = self.analyse_frame_for_blob(frame)
+            found_in_image, xpos, ypos, size = self.analyse_frame(frame)
 
             # display image
             cv2.imshow('frame',frame)
