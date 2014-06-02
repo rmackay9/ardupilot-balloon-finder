@@ -342,7 +342,7 @@ class BalloonStrategy(object):
         # FIXME - check if the balloon gets larger if we think we are approaching it
 
         # look for balloon in image using blob detector        
-        found_in_image, xpos, ypos, size = balloon_finder.analyse_frame_for_blob(f)
+        found_in_image, xpos, ypos, size = balloon_finder.analyse_frame(f)
 
         # add artificial horizon
         balloon_finder.add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
@@ -387,108 +387,6 @@ class BalloonStrategy(object):
 
         # save image for debugging later
         self.writer.write(f)
-
-    def goto_balloon(self):
-
-        # exit immediately if we are not controlling the vehicle
-        if not self.controlling_vehicle:
-            return
-
-        # get current time
-        now = time.time()
-
-        # exit immediately if it's been too soon since the last update
-        if (now - self.last_target_update) < 2.0:
-            return;
-
-        # balloon to control whether we update target location to autopilot
-        update_target = False
-
-        # if we have not seen the balloon in our most recent image
-        if self.balloon_pos is None:
-            # if we do not have a target there is nothing to do but wait for a balloon to appear
-            if self.guided_target_pos is None:
-                # To-Do: add search logic here?
-                return;
-
-            # although we don't see the balloon we still have a target to the last place we saw it
-            else:
-                # if we are within 2m of the target we have probably popped it (return control to autopilot)
-                if PositionVector.get_distance_xyz(self.vehicle_pos, self.guided_target_pos) < 2:
-                    if self.debug:
-                        print "Lost Balloon, Think we popped it"
-                    self.complete()
-                    return
-
-                # if we have not seen the balloon in some time, give up on it
-                if now - self.last_spotted_time > self.lost_sight_timeout:
-                    if self.debug:
-                        print "Lost Balloon, Giving up"
-                    # clear out target position
-                    self.guided_target_pos = None
-                    self.guided_target_loc = None
-                    # To-Do: stop vehicle moving and start searching again?
-                    self.complete()
-
-        # we have seen a balloon
-        else:
-            # if we have never seen the balloon update our target to the balloon position
-            if self.guided_target_pos is None:
-                self.guided_target_pos = self.balloon_pos
-                self.guided_target_loc = self.guided_target_pos.get_location()
-                update_target = True
-                if self.debug:
-                        print "Found Balloon for the first time"
-
-            else:
-                # get distance the balloon has apparently moved
-                distance_balloon_moved = PositionVector.get_distance_xyz(self.guided_target_pos, self.balloon_pos)
-
-                # if balloon has moved more than the radius of the balloon we adjust target
-                if distance_balloon_moved > 0.5:
-                    #if self.debug:
-                    #    print "Dist Balloon Moved: %f" % distance_balloon_moved
-
-                    # if balloon has apparently moved less than 20m we guess it is the same balloon
-                    if distance_balloon_moved < 20:
-                        # update the target position towards the balloon position
-                        self.guided_target_pos = self.guided_target_pos + (self.balloon_pos - self.guided_target_pos) * 0.1
-
-                        # convert the new target to a location
-                        target_loc = self.guided_target_pos.get_location()
-
-                        # if different from current target update flight controller target
-                        dalt = math.fabs(target_loc.alt - self.guided_target_loc.alt)
-                        if (target_loc.lat <> self.guided_target_loc.lat or target_loc.lon <> self.guided_target_loc.lon or dalt > 0.10):
-                            self.guided_target_loc = target_loc
-                            update_target = True
-                            #if self.debug:
-                            #    print "Moved target a little: %f" % (distance_balloon_moved * 0.1)
-
-                    # if balloon has moved more than 20m we guess it is a different balloon
-                    else:
-                        # get distance to the target
-                        distance_to_target = PositionVector.get_distance_xyz(self.vehicle_pos, self.guided_target_pos)
-
-                        #if we've reached the position we have probably popped the 1st balloon and are now seeing a different balloon
-                        if distance_to_target < 2:
-                            if self.debug:
-                                print "Found different ball at %f meters" % distance_to_target
-                            # To-Do: try going for this new balloon?  Would need to re-check it's distance, altitude, etc
-                            self.complete()
-                            return
-
-        # FIXME - check if vehicle altitude is too low
-        # FIXME - check if we are too far from the desired flightplan
-
-        # send new target to the autopilot
-        if update_target:
-            self.vehicle.commands.goto(self.guided_target_loc)
-            self.vehicle.flush()
-            self.last_target_update = time.time()
-            #if self.debug:
-            #    print "Veh %s" % self.vehicle.location
-            #    print "Going to: %s" % self.guided_target_loc
 
     def speed_to_balloon(self):
 
