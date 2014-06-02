@@ -149,7 +149,7 @@ class BalloonSimulator(object):
             img = self.get_simulated_frame(veh_pos, veh_roll, veh_pitch, veh_yaw)
 
             # look for balloon in image using blob detector        
-            found_in_image, xpos, ypos, size = balloon_finder.analyse_frame_for_blob(img)
+            found_in_image, xpos, ypos, size = balloon_finder.analyse_frame(img)
 
             # display actual vs real distance
             dist_actual = PositionVector.get_distance_xyz(veh_pos, fake_balloon_pos)
