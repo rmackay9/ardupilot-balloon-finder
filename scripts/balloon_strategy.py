@@ -103,7 +103,7 @@ class BalloonStrategy(object):
         self.use_simulator = balloon_config.config.get_boolean('general','simulate',True)
 
         if not self.use_simulator:
-            self.camera = get_camera()
+            self.camera = balloon_video.get_camera()
         self.writer = balloon_video.open_video_writer()
 
         # horizontal velocity pid controller.  maximum effect is 10 degree lean
