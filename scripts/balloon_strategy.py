@@ -54,11 +54,14 @@ class BalloonStrategy(object):
 
         # search variables
         self.searching = False
-        self.search_complete = False
-        self.search_closest_balloon = None
-        self.search_start_time = None
-        self.search_start_heading = None
-        self.search_heading_change = None
+        self.search_complete = False            # true if search has been completed
+        self.search_start_heading = None        # initial heading of vehicle when search began
+        self.search_target_heading = None       # the vehicle's current target heading (updated as vehicle spins during search)
+        self.search_heading_change = None       # heading change (in radians) performed so far during search
+        self.search_balloon_pos = None          # position (as an offset from home) of closest balloon (so far) during search
+        self.search_balloon_heading = None      # earth-frame heading (in radians) from vehicle to closest balloon
+        self.search_balloon_pitch = None        # earth-frame pitch (in radians) from vehicle to closest balloon 
+        self.search_balloon_distance = None     # distance (in meters) from vehicle to closest balloon
 
         # vehicle mission
         self.mission_cmds = None
@@ -70,17 +73,18 @@ class BalloonStrategy(object):
         # vehicle position captured at time camera image was captured
         self.vehicle_pos = None
 
-        # Our guess of the balloon position as an offset from home (if we have one)
-        self.balloon_pos = None             # last estimated position
+        # balloon direction and position estimate from latest call to analyse_image
+        self.balloon_found = False
+        self.balloon_pitch = None
+        self.balloon_heading = None
+        self.balloon_distance = None
+        self.balloon_pos = None             # last estimated position as an offset from home
 
-        # target location we are flying to (if we have one)
-        self.guided_target_pos = None
-        self.guided_target_loc = None
-        self.last_target_update = time.time()   # time of the last target update sent to the flight controller
-        
-        # velocity control variables
-        self.balloon_vel = None             # velocity vector to balloon
-        self.guided_target_vel = None       # guided mode's target velocity
+        # time of the last target update sent to the flight controller
+        self.guided_last_update = time.time()
+
+        # latest velocity target sent to flight controller
+        self.guided_target_vel = None
 
         # time the target balloon was last spotted
         self.last_spotted_time = 0
@@ -100,10 +104,26 @@ class BalloonStrategy(object):
             self.camera = get_camera()
         self.writer = balloon_video.open_video_writer()
 
-        self.search_target_heading = None
-
         # horizontal velocity pid controller.  maximum effect is 10 degree lean
-        self.pid_xy = pid.pid(2.0, 0.0, 0.0, math.radians(10))
+        xy_p = balloon_config.config.get_float('general','VEL_XY_P',2.0)
+        xy_i = balloon_config.config.get_float('general','VEL_XY_I',0.0)
+        xy_d = balloon_config.config.get_float('general','VEL_XY_D',0.0)
+        xy_imax = balloon_config.config.get_float('general','VEL_XY_IMAX',10.0)
+        self.vel_xy_pid = pid.pid(xy_p, xy_i, xy_d, math.radians(xy_imax))
+
+        # vertical velocity pid controller.  maximum effect is 10 degree lean
+        z_p = balloon_config.config.get_float('general','VEL_Z_P',2.0)
+        z_i = balloon_config.config.get_float('general','VEL_Z_I',0.0)
+        z_d = balloon_config.config.get_float('general','VEL_Z_D',0.0)
+        z_imax = balloon_config.config.get_float('general','VEL_IMAX',10.0)
+        self.vel_z_pid = pid.pid(z_p, z_i, z_d, math.radians(z_imax))
+
+        # velocity controller min and max speed
+        self.vel_speed_min = balloon_config.config.get_float('general','VEL_SPEED_MIN',1.0)
+        self.vel_speed_max = balloon_config.config.get_float('general','VEL_SPEED_MAX',5.0)
+
+        # velocity controller update rate
+        self.vel_update_rate = balloon_config.config.get_float('general','VEL_UPDATE_RATE_SEC',1.0)
 
     # fetch_mission - fetch mission from flight controller
     def fetch_mission(self):
@@ -248,6 +268,57 @@ class BalloonStrategy(object):
         else:
             print "Failed to advance command"
 
+    # get_frame - get a single frame from the camera or simulator
+    def get_frame(self):
+        if self.use_simulator:
+            veh_pos = PositionVector.get_from_location(self.vehicle.location)
+            frame = balloon_sim.get_simulated_frame(veh_pos, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw)
+        else:
+            _, frame = self.camera.read()
+        return frame
+
+    # get image from camera and look for balloon, results are held in the following variables:
+    #    self.balloon_found : set to True if balloon is found, False otherwise
+    #    self.balloon_pitch : earth frame pitch (in radians) from vehicle to balloon (i.e. takes account of vehicle attitude)
+    #    self.balloon_heading : earth frame heading (in radians) from vehicle to balloon
+    #    self.balloon_distance : distance (in meters) from vehicle to balloon
+    #    self.balloon_pos : position vector of balloon's position as an offset from home in meters
+    def analyze_image(self):
+
+        # record time
+        now = time.time()
+
+        # capture vehicle position and attitude
+        self.vehicle_pos = PositionVector.get_from_location(self.vehicle.location)
+        vehicle_attitude = self.vehicle.attitude
+
+        # get new image from camera
+        f = self.get_frame()
+
+        # look for balloon in image using blob detector        
+        self.balloon_found, xpos, ypos, size = balloon_finder.analyse_frame(f)
+
+        # add artificial horizon
+        balloon_finder.add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
+
+        if self.balloon_found:
+            # record time balloon was found
+            self.last_spotted_time = now
+        
+            # convert x, y position to pitch and yaw direction (in radians)
+            self.balloon_pitch, self.balloon_heading = balloon_finder.pixels_to_direction(xpos, ypos, vehicle_attitude.roll, vehicle_attitude.pitch, vehicle_attitude.yaw)
+            self.balloon_pitch = math.radians(self.balloon_pitch)
+            self.balloon_heading = math.radians(self.balloon_heading)
+
+            # get distance
+            self.balloon_distance = get_distance_from_pixels(size, balloon_finder.balloon_radius_expected)
+
+            # updated estimated balloon position
+            self.balloon_pos = balloon_finder.project_position(self.vehicle_pos, self.balloon_pitch, self.balloon_heading, self.balloon_distance)
+
+        # save image for debugging later
+        self.writer.write(f)
+
     # start_search - start search for balloon
     def start_search(self):
         # exit immediately if we are not controlling the vehicle
@@ -256,8 +327,7 @@ class BalloonStrategy(object):
         # initialise search variables
         self.searching = True
         self.search_complete = False
-        self.search_closest_balloon = None
-        self.search_start_time = time.time()
+        self.search_balloon_pos = None
         self.search_start_heading = self.vehicle.attitude.yaw
         self.search_target_heading = self.search_start_heading
         self.search_total_angle = 0
@@ -270,18 +340,18 @@ class BalloonStrategy(object):
             return
 
         # check if we're still searching for balloon
+        #    analyze_image should have been called just before and should have filled in self.balloon_pos, balloon_distance, balloon_pitch and balloon_yaw
         if not self.search_complete:
+
             # check if we have seen a balloon
-            if not self.balloon_pos is None:
-                # if this is the first balloon we've seen store it's position as the closest
-                if self.search_closest_balloon is None:
-                    self.search_closest_balloon = self.balloon_pos
-                else:
-                    # check distance to new balloon vs previous closest balloon and store if closer
-                    dist_prev = PositionVector.get_distance_xyz(self.vehicle_pos, self.search_closest_balloon)
-                    dist_new = PositionVector.get_distance_xyz(self.vehicle_pos, self.balloon_pos)
-                    if dist_new < dist_prev:
-                        self.search_closest_balloon = self.balloon_pos
+            if self.balloon_found:
+                # if this is the first balloon we've found or the closest, store it's position as the closest
+                # To-Do: add check that closest balloon is also within the min/max alt and distance
+                if (self.search_balloon_pos is None) or (self.balloon_distance < self.search_balloon_distance):
+                    self.search_balloon_pos = self.balloon_pos
+                    self.search_balloon_heading = self.balloon_heading
+                    self.search_balloon_pitch = self.balloon_pitch
+                    self.search_balloon_distance = self.balloon_distance
 
             # check yaw is close to target
             if math.fabs(wrap_PI(self.vehicle.attitude.yaw - self.search_target_heading)) < math.radians(20):
@@ -297,13 +367,12 @@ class BalloonStrategy(object):
                     self.search_complete = True
 
                     # if we never saw a balloon then just complete (return control to user or mission)
-                    if self.search_closest_balloon is None:
+                    if self.search_balloon_pos is None:
                         self.searching = False
                         self.complete()
                     else:
-                        # set target heading to closest balloon
-                        self.search_target_heading = PositionVector.get_bearing(self.vehicle_pos, self.search_closest_balloon)
-                        # send yaw heading
+                        # update target heading towards closest balloon and send to flight controller
+                        self.search_target_heading = self.search_balloon_heading
                         self.condition_yaw(math.degrees(self.search_target_heading))
 
         # we have completed search and are spinning back towards closest balloon
@@ -317,78 +386,9 @@ class BalloonStrategy(object):
                     # we somehow haven't found the balloon when we've turned back to find it so begin search again
                     self.start_search()
 
-    def get_frame(self):
-        if self.use_simulator:
-            veh_pos = PositionVector.get_from_location(self.vehicle.location)
-            frame = balloon_sim.get_simulated_frame(veh_pos, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw)
-        else:
-            _, frame = self.camera.read()
-        return frame
-
-    # get image from camera and look for balloon
-    def analyze_image(self):
-
-        # record time
-        now = time.time()
-
-        # capture vehicle position and attitude
-        self.vehicle_pos = PositionVector.get_from_location(self.vehicle.location)
-        vehicle_attitude = self.vehicle.attitude
-
-        # get new image from camera
-        f = self.get_frame()
-
-        # FIXME - analyze the image to get a score indicating likelihood there is a balloon and if it
-        # FIXME - check if the balloon gets larger if we think we are approaching it
-
-        # look for balloon in image using blob detector        
-        found_in_image, xpos, ypos, size = balloon_finder.analyse_frame(f)
-
-        # add artificial horizon
-        balloon_finder.add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
-
-        if found_in_image:
-            # record time balloon was found
-            self.last_spotted_time = now
-
-            # convert x, y position to pitch and yaw direction (in degrees)
-            pitch_dir, yaw_dir = balloon_finder.pixels_to_direction(xpos, ypos, vehicle_attitude.roll, vehicle_attitude.pitch, vehicle_attitude.yaw)
-
-            # calculate change in yaw error since we began the search
-            yaw_error = 0
-            if not self.search_target_heading is None:
-                yaw_error = wrap_PI(math.radians(yaw_dir) - self.search_target_heading)
-            else:
-                self.pid_xy.reset_I()
-            
-            # get distance
-            balloon_distance = get_distance_from_pixels(size, balloon_finder.balloon_radius_expected)
-
-            # debug
-            #if self.debug:
-            #    print "Balloon found at heading %f, and %f degrees up, dist:%f meters" % (yaw_dir, pitch_dir, balloon_distance)
-
-            # updated estimated balloon position
-            self.balloon_pos = balloon_finder.project_position(self.vehicle_pos, math.radians(pitch_dir), math.radians(yaw_dir), balloon_distance)
-
-            # get speed towards balloon between 1m/s and 5m/s
-            speed = min(balloon_distance,4)
-            speed = max(speed,1)
-
-            # calculate yaw error
-            yaw_pid_error = self.pid_xy.get_pid(yaw_error, self.pid_xy.get_dt(0.5))
-
-            # calculate velocity vector towards balloon
-            self.balloon_vel = balloon_finder.get_ef_velocity_vector(math.radians(pitch_dir), math.radians(yaw_dir)+yaw_pid_error, speed)
-        else:
-            # indicate that we did not see a balloon
-            self.balloon_pos = None
-            self.balloon_vel = None
-
-        # save image for debugging later
-        self.writer.write(f)
-
-    def speed_to_balloon(self):
+    # move_to_balloon - velocity controller to drive vehicle to balloon
+    #    analyze_image should have been called prior to this and filled in self.balloon_found, balloon_pitch, balloon_heading, balloon_distance 
+    def move_to_balloon(self):
 
         # exit immediately if we are not controlling the vehicle
         if not self.controlling_vehicle:
@@ -398,48 +398,51 @@ class BalloonStrategy(object):
         now = time.time()
 
         # exit immediately if it's been too soon since the last update
-        if (now - self.last_target_update) < 1.0:
+        if (now - self.guided_last_update) < self.vel_update_rate:
             return;
 
-        # balloon to control whether we update target velocity to autopilot
-        update_target = False
+        # if we have a new balloon position recalculate velocity vector
+        if (self.balloon_found):
 
-        # if we have not seen the balloon in our most recent image
-        if self.balloon_vel is None:
-            # if we do not have a target there is nothing to do but wait for a balloon to appear
-            if self.guided_target_vel is None:
-                # To-Do: add search logic here?
-                return;
+            # calculate change in yaw since we began the search
+            yaw_error = wrap_PI(self.balloon_heading - self.search_balloon_heading)
 
-            # although we don't see the balloon we still have a target velocity towards the last place we saw it
-            else:
-                # if we have not seen the balloon in some time, give up on it
-                if now - self.last_spotted_time > self.lost_sight_timeout:
-                    if self.debug:
-                        print "Lost Balloon, Giving up"
-                    # clear out target position
-                    self.guided_target_vel = None
-                    # To-Do: stop vehicle moving and start searching again?
-                    self.complete()
+            # calculate change in pitch since we began the search 
+            pitch_error = wrap_PI(self.balloon_pitch - self.search_balloon_pitch)
 
-        # we have seen a balloon
+            # get speed towards balloon between 1m/s and 5m/s
+            speed = min(self.balloon_distance, self.vel_speed_max)
+            speed = max(speed, self.vel_speed_min)
+
+            # get time since last time velocity pid controller was run
+            dt = self.vel_xy_pid.get_dt(0.5)
+
+            # calculate yaw correction and final yaw movement
+            yaw_correction = self.vel_xy_pid.get_pid(yaw_error, dt)
+            yaw_final = wrap_PI(self.balloon_heading + yaw_correction)
+
+            # calculate pitch correction and final pitch movement
+            pitch_correction = self.vel_z_pid.get_pid(pitch_error, dt)
+            pitch_final = wrap_PI(self.balloon_pitch + pitch_correction)
+
+            # calculate velocity vector we wish to move in
+            self.guided_target_vel = balloon_finder.get_ef_velocity_vector(pitch_final, yaw_final, speed)
+
+            # send velocity vector to flight controller
+            self.send_nav_velocity(self.guided_target_vel[0], self.guided_target_vel[1], self.guided_target_vel[2])
+            self.guided_last_update = time.time()
+
+        # if have not seen the balloon
         else:
-            # if we have never seen the balloon update our target velocity to fly at the balloon
-            if self.guided_target_vel is None:
+            # if more than a few seconds has passed without seeing the balloon give up
+            if now - self.last_spotted_time > self.lost_sight_timeout:
                 if self.debug:
-                        print "Found Balloon for the first time"
-
-            self.guided_target_vel = self.balloon_vel
-            update_target = True
+                    print "Lost Balloon, Giving up"
+                # To-Do: start searching again or maybe slowdown?
+                self.complete()
 
         # FIXME - check if vehicle altitude is too low
         # FIXME - check if we are too far from the desired flightplan
-
-        # send new target to the autopilot
-        if update_target:
-            self.send_nav_velocity(self.guided_target_vel[0], self.guided_target_vel[1], self.guided_target_vel[2])
-            self.vehicle.flush()
-            self.last_target_update = time.time()
 
     def run(self):
         while not self.api.exit:
@@ -459,7 +462,7 @@ class BalloonStrategy(object):
                     self.search_for_balloon()
                 else:
                     # move towards balloon
-                    self.speed_to_balloon()
+                    self.move_to_balloon()
     
             # Don't suck up too much CPU, only process a new image occasionally
             time.sleep(0.05)
@@ -472,18 +475,13 @@ class BalloonStrategy(object):
         if self.debug:
             print "Complete!"
 
-        # set target velocity to zero
-        self.send_nav_velocity(0,0,0)
-
-        # record that we are not in control of vehicle
-        # To-Do: this could be reset back to True if check runs too soon after this
-        self.controlling_vehicle = False
-
-        # reset all variables
-        self.balloon_loc = None
-        self.guided_target_loc = None
-        self.guided_target_pos = None
-        self.last_spotted_time = 0
+        # stop the vehicle and give up control
+        if self.controlling_vehicle:
+            # To-Do: this could be reset back to True if check runs too soon after this
+            self.controlling_vehicle = False
+            self.guided_target_vel = (0,0,0)
+            self.send_nav_velocity(self.guided_target_vel[0], self.guided_target_vel[1], self.guided_target_vel[2])
+            self.guided_last_update = time.time()
 
         # if in GUIDED mode switch back to LOITER
         if self.vehicle.mode.name == "GUIDED":
