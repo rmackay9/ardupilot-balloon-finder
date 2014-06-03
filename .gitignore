@@ -53,3 +53,5 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# ardupilot-balloon-finder files to ignore
+balloon_finder.cnf
