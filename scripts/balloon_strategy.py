@@ -68,7 +68,6 @@ class BalloonStrategy(object):
 
         # we are not in control of vehicle
         self.controlling_vehicle = False
-        self.last_status_check = time.time()
 
         # vehicle position captured at time camera image was captured
         self.vehicle_pos = None
@@ -178,41 +177,35 @@ class BalloonStrategy(object):
     # check_status - poles vehicle' status to determine if we are in control of vehicle or not
     def check_status(self):
 
-        # check status no more than once every two seconds
-        if (time.time() - self.last_status_check > 2):
+        # we are active in guided mode
+        if self.vehicle.mode.name == "GUIDED":
+            if not self.controlling_vehicle:
+                self.controlling_vehicle = True
+                self.start_search()
+            return
 
-            # update that we have performed a status check
-            self.last_status_check = time.time()
+        # download the vehicle waypoints if we don't have them already
+        # To-Do: do not load waypoints if vehicle is armed
+        if self.mission_cmds is None:
+            self.fetch_mission()
+            return
 
-            # we are active in guided mode
-            if self.vehicle.mode.name == "GUIDED":
+        # Check for Auto mode and executing Nav-Guided command
+        if self.vehicle.mode.name == "AUTO":
+
+            # get active command number and mavlink id
+            active_command = self.vehicle.commands.next
+            active_command_id = self.vehicle.commands[active_command].command
+
+            # ninety is the MAVLink id for Nav-Guided commands
+            if active_command_id == 90:
                 if not self.controlling_vehicle:
                     self.controlling_vehicle = True
                     self.start_search()
-                return
-
-            # download the vehicle waypoints if we don't have them already
-            # To-Do: do not load waypoints if vehicle is armed
-            if self.mission_cmds is None:
-                self.fetch_mission()
-                return
-
-            # Check for Auto mode and executing Nav-Guided command
-            if self.vehicle.mode.name == "AUTO":
-
-                # get active command number and mavlink id
-                active_command = self.vehicle.commands.next
-                active_command_id = self.vehicle.commands[active_command].command
-
-                # ninety is the MAVLink id for Nav-Guided commands
-                if active_command_id == 90:
-                    if not self.controlling_vehicle:
-                        self.controlling_vehicle = True
-                        self.start_search()
-                    return    
-        
-            # if we got here then we are not in control
-            self.controlling_vehicle = False
+                return    
+    
+        # if we got here then we are not in control
+        self.controlling_vehicle = False
 
     # condition_yaw - send condition_yaw mavlink command to vehicle so it points at specified heading (in degrees)
     def condition_yaw(self, heading):
@@ -471,14 +464,12 @@ class BalloonStrategy(object):
 
     # complete - balloon strategy has somehow completed so return control to the autopilot
     def complete(self):
-        # debug 
+        # debug
         if self.debug:
             print "Complete!"
 
         # stop the vehicle and give up control
         if self.controlling_vehicle:
-            # To-Do: this could be reset back to True if check runs too soon after this
-            self.controlling_vehicle = False
             self.guided_target_vel = (0,0,0)
             self.send_nav_velocity(self.guided_target_vel[0], self.guided_target_vel[1], self.guided_target_vel[2])
             self.guided_last_update = time.time()
@@ -492,6 +483,9 @@ class BalloonStrategy(object):
         if self.vehicle.mode.name == "AUTO":
             self.advance_current_cmd();
 
+        # flag we are not in control of the vehicle
+        self.controlling_vehicle = False
+            
         return
 
 strat = BalloonStrategy()
