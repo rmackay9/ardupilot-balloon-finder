@@ -8,6 +8,7 @@ This file includes functions to:
 Image size is held in the balloon_finder.cnf
 """
 
+import sys
 import math
 import cv2
 import balloon_config
