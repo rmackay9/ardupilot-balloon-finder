@@ -34,7 +34,7 @@ class BalloonFinder(object):
     def __init__(self):
 
         # define expected balloon radius in meters
-        self.balloon_radius_expected = balloon_config.config.get_float('balloon','radius_cm',0.5)
+        self.balloon_radius_expected = balloon_config.config.get_float('balloon','radius_m',0.5)
 
         # colour filters for balloon
         self.filter_low = numpy.array([balloon_config.config.get_integer('balloon','h-low',BalloonFinder.default_h_low),
