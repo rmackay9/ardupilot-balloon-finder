@@ -100,7 +100,7 @@ class BalloonStrategy(object):
         self.debug = balloon_config.config.get_boolean('general','debug',True)
 
         # use the simulator to generate fake balloon images
-        self.use_simulator = balloon_config.config.get_boolean('general','simulate',True)
+        self.use_simulator = balloon_config.config.get_boolean('general','simulate',False)
 
         if not self.use_simulator:
             self.camera = balloon_video.get_camera()
