@@ -65,6 +65,9 @@ class BalloonStrategy(object):
 
         # vehicle mission
         self.mission_cmds = None
+        self.mission_alt_min = 0                # min altitude from NAV_GUIDED mission command (we ignore balloons below this altitude).  "0" means no limit
+        self.mission_alt_max = 0                # max altitude from NAV_GUIDED mission command (we ignore balloons above this altitude).  "0" means no limit
+        self.mission_distance_max = 0           # max distance from NAV_GUIDED mission command (we ignore balloons further than this distance).  "0" means no limit
 
         # we are not in control of vehicle
         self.controlling_vehicle = False
@@ -181,6 +184,11 @@ class BalloonStrategy(object):
         if self.vehicle.mode.name == "GUIDED":
             if not self.controlling_vehicle:
                 self.controlling_vehicle = True
+                # clear out any limits on balloon position
+                self.mission_alt_min = 0
+                self.mission_alt_max = 0
+                self.mission_distance_max = 0
+                # start search for balloon
                 self.start_search()
             return
 
@@ -201,6 +209,11 @@ class BalloonStrategy(object):
             if active_command_id == 90:
                 if not self.controlling_vehicle:
                     self.controlling_vehicle = True
+                    self.mission_alt_min = self.vehicle.commands[active_command].param2
+                    self.mission_alt_max = self.vehicle.commands[active_command].param3
+                    self.mission_distance_max = self.vehicle.commands[active_command].param4
+                    # debug
+                    print "Mission AltMin:%f AltMax:%f DistMax:%f" % (self.mission_alt_min, self.mission_alt_max, self.mission_distance_max)
                     self.start_search()
                 return    
     
@@ -341,10 +354,15 @@ class BalloonStrategy(object):
                 # if this is the first balloon we've found or the closest, store it's position as the closest
                 # To-Do: add check that closest balloon is also within the min/max alt and distance
                 if (self.search_balloon_pos is None) or (self.balloon_distance < self.search_balloon_distance):
-                    self.search_balloon_pos = self.balloon_pos
-                    self.search_balloon_heading = self.balloon_heading
-                    self.search_balloon_pitch = self.balloon_pitch
-                    self.search_balloon_distance = self.balloon_distance
+                    # check distance is within acceptable limits
+                    if (self.mission_alt_min == 0 or self.balloon_pos.z >= self.mission_alt_min) and (self.mission_alt_max == 0 or self.balloon_pos.z <= self.mission_alt_max) and (self.mission_distance_max == 0 or self.balloon_distance <= self.mission_distance_max):
+                        # record this balloon as the closest
+                        self.search_balloon_pos = self.balloon_pos
+                        self.search_balloon_heading = self.balloon_heading
+                        self.search_balloon_pitch = self.balloon_pitch
+                        self.search_balloon_distance = self.balloon_distance
+                    else:
+                        print "Balloon Ignored Alt:%f Dist:%f" % (self.balloon_pos.z, self.balloon_distance)
 
             # check yaw is close to target
             if math.fabs(wrap_PI(self.vehicle.attitude.yaw - self.search_target_heading)) < math.radians(20):
