@@ -1,0 +1,30 @@
+[camera]
+width = 640
+height = 480
+horizontal-fov = 70.42
+vertical-fov = 43.3
+video_output_file = find_balloon.avi
+
+[balloon]
+h-low = 154
+h-high = 195
+s-low = 75
+s-high = 255
+v-low = 63
+v-high = 191
+radius_m = 0.5
+
+[general]
+debug = True
+simulate = False
+VEL_XY_P = 2.0
+VEL_XY_I = 0.0
+VEL_XY_D = 0.0
+VEL_XY_IMAX = 10.0
+VEL_Z_P = 2.0
+VEL_Z_I = 0.0
+VEL_Z_D = 0.0
+VEL_Z_IMAX = 10.0
+VEL_SPEED_MIN = 1.0
+VEL_SPEED_MAX = 5.0
+VEL_UPDATE_RATE_SEC = 1.0
