@@ -15,7 +15,7 @@ class BalloonConfig(object):
 
     def __init__(self):
         # default config file
-        self.config_file = expanduser("~") + "/balloon_finder.cnf" 
+        self.config_file = expanduser("~/balloon_finder.cnf")
 
         # create the global parser object
         self.parser = ConfigParser.SafeConfigParser()
