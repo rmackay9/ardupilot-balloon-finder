@@ -26,6 +26,6 @@ ls -l /dev/ttyUSB*
 ls -l /dev/serial/by-id
 ls -l /dev/video*
 
-screen -d -m -s /bin/bash mavproxy.py --master=/dev/ttyUSB0 --baudrate 921600 --aircraft MyCopter
+screen -d -m -s /bin/bash mavproxy.py --master=/dev/ttyUSB0 --baudrate 1500000 --aircraft MyCopter
 
 echo "start_mavproxy.sh done"
