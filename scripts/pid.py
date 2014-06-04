@@ -24,7 +24,9 @@ class pid(object):
 
     # get_dt - returns time difference since last get_dt call
     def get_dt(self, max_dt):
-        time_diff = time.time() - self.last_update
+        now = time.time()
+        time_diff = now - self.last_update
+        self.last_update = now
         if time_diff > max_dt:
             return 0.0
         else:
