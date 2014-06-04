@@ -144,6 +144,11 @@ class BalloonStrategy(object):
         # check for home no more than once every two seconds
         if (time.time() - self.last_home_check > 2):
 
+            # check if we have a vehicle
+            if self.vehicle is None:
+                self.vehicle = self.api.get_vehicles()[0]
+                return
+
             # update that we have performed a status check
             self.last_home_check = time.time()
 
@@ -170,6 +175,8 @@ class BalloonStrategy(object):
             if home_lat <> 0 and home_lon <> 0:
                 PositionVector.set_home_location(Location(home_lat,home_lon,0))
                 self.home_initialised = True
+            else:
+                self.mission_cmds = None
 
             # To-Do: if we wish to have the same home position as the flight controller
             # we must download the home waypoint again whenever the vehicle is armed
