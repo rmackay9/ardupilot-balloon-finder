@@ -124,6 +124,9 @@ class BalloonStrategy(object):
         self.vel_speed_min = balloon_config.config.get_float('general','VEL_SPEED_MIN',1.0)
         self.vel_speed_max = balloon_config.config.get_float('general','VEL_SPEED_MAX',5.0)
 
+        # pitch angle to hit balloon at.  negative means come down from above
+        self.vel_pitch_target = math.radians(balloon_config.config.get_float('general','VEL_PITCH_TARGET',-5.0))
+
         # velocity controller update rate
         self.vel_update_rate = balloon_config.config.get_float('general','VEL_UPDATE_RATE_SEC',1.0)
 
@@ -144,13 +147,13 @@ class BalloonStrategy(object):
         # check for home no more than once every two seconds
         if (time.time() - self.last_home_check > 2):
 
+            # update that we have performed a status check
+            self.last_home_check = time.time()
+
             # check if we have a vehicle
             if self.vehicle is None:
                 self.vehicle = self.api.get_vehicles()[0]
                 return
-
-            # update that we have performed a status check
-            self.last_home_check = time.time()
 
             # ensure the vehicle's position is known
             if self.vehicle.location is None:
@@ -219,8 +222,6 @@ class BalloonStrategy(object):
                     self.mission_alt_min = self.vehicle.commands[active_command].param2
                     self.mission_alt_max = self.vehicle.commands[active_command].param3
                     self.mission_distance_max = self.vehicle.commands[active_command].param4
-                    # debug
-                    print "Mission AltMin:%f AltMax:%f DistMax:%f" % (self.mission_alt_min, self.mission_alt_max, self.mission_distance_max)
                     self.start_search()
                 return    
     
@@ -425,15 +426,15 @@ class BalloonStrategy(object):
             # calculate change in yaw since we began the search
             yaw_error = wrap_PI(self.balloon_heading - self.search_balloon_heading)
 
-            # calculate change in pitch since we began the search 
-            pitch_error = wrap_PI(self.balloon_pitch - self.search_balloon_pitch)
+            # calculate pitch vs ideal pitch angles.  This will cause to attempt to get to 5deg above balloon 
+            pitch_error = wrap_PI(self.balloon_pitch - self.vel_pitch_target)
 
             # get speed towards balloon between 1m/s and 5m/s
             speed = min(self.balloon_distance, self.vel_speed_max)
             speed = max(speed, self.vel_speed_min)
 
             # get time since last time velocity pid controller was run
-            dt = self.vel_xy_pid.get_dt(0.5)
+            dt = self.vel_xy_pid.get_dt(2.0)
 
             # calculate yaw correction and final yaw movement
             yaw_correction = self.vel_xy_pid.get_pid(yaw_error, dt)
@@ -448,7 +449,7 @@ class BalloonStrategy(object):
 
             # send velocity vector to flight controller
             self.send_nav_velocity(self.guided_target_vel[0], self.guided_target_vel[1], self.guided_target_vel[2])
-            self.guided_last_update = time.time()
+            self.guided_last_update = now
 
         # if have not seen the balloon
         else:
