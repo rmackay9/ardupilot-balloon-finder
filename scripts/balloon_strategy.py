@@ -114,7 +114,7 @@ class BalloonStrategy(object):
         self.vel_xy_pid = pid.pid(xy_p, xy_i, xy_d, math.radians(xy_imax))
 
         # vertical velocity pid controller.  maximum effect is 10 degree lean
-        z_p = balloon_config.config.get_float('general','VEL_Z_P',2.0)
+        z_p = balloon_config.config.get_float('general','VEL_Z_P',1.0)
         z_i = balloon_config.config.get_float('general','VEL_Z_I',0.0)
         z_d = balloon_config.config.get_float('general','VEL_Z_D',0.0)
         z_imax = balloon_config.config.get_float('general','VEL_IMAX',10.0)
@@ -128,7 +128,7 @@ class BalloonStrategy(object):
         self.vel_pitch_target = math.radians(balloon_config.config.get_float('general','VEL_PITCH_TARGET',-5.0))
 
         # velocity controller update rate
-        self.vel_update_rate = balloon_config.config.get_float('general','VEL_UPDATE_RATE_SEC',1.0)
+        self.vel_update_rate = balloon_config.config.get_float('general','VEL_UPDATE_RATE_SEC',0.2)
 
     # fetch_mission - fetch mission from flight controller
     def fetch_mission(self):
