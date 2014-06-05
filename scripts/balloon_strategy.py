@@ -195,9 +195,9 @@ class BalloonStrategy(object):
             if not self.controlling_vehicle:
                 self.controlling_vehicle = True
                 # clear out any limits on balloon position
-                self.mission_alt_min = 0
+                self.mission_alt_min = 1
                 self.mission_alt_max = 0
-                self.mission_distance_max = 0
+                self.mission_distance_max = 50
                 # start search for balloon
                 self.start_search()
             return
