@@ -123,6 +123,9 @@ class BalloonStrategy(object):
         # velocity controller min and max speed
         self.vel_speed_min = balloon_config.config.get_float('general','VEL_SPEED_MIN',1.0)
         self.vel_speed_max = balloon_config.config.get_float('general','VEL_SPEED_MAX',5.0)
+        self.vel_speed_last = 0.0   # last recorded speed
+        self.vel_accel = balloon_config.config.get_float('general','VEL_ACCEL', 0.5)    # maximum acceleration in m/s/s
+        self.vel_dist_ratio = balloon_config.config.get_float('general','VEL_DIST_RATIO', 0.5) 
 
         # pitch angle to hit balloon at.  negative means come down from above
         self.vel_pitch_target = math.radians(balloon_config.config.get_float('general','VEL_PITCH_TARGET',-5.0))
@@ -345,6 +348,8 @@ class BalloonStrategy(object):
         self.search_start_heading = self.vehicle.attitude.yaw
         self.search_target_heading = self.search_start_heading
         self.search_total_angle = 0
+        # reset vehicle speed
+        self.vel_speed_last = 0
 
     # search - spin vehicle looking for balloon
     def search_for_balloon(self):
@@ -429,21 +434,32 @@ class BalloonStrategy(object):
             # calculate pitch vs ideal pitch angles.  This will cause to attempt to get to 5deg above balloon 
             pitch_error = wrap_PI(self.balloon_pitch - self.vel_pitch_target)
 
-            # get speed towards balloon between 1m/s and 5m/s
-            speed = min(self.balloon_distance, self.vel_speed_max)
-            speed = max(speed, self.vel_speed_min)
-
             # get time since last time velocity pid controller was run
             dt = self.vel_xy_pid.get_dt(2.0)
 
+            # get speed towards balloon based on balloon distance
+            speed = self.balloon_distance * self.vel_dist_ratio
+
+            # apply min and max speed limit
+            speed = min(speed, self.vel_speed_max)
+            speed = max(speed, self.vel_speed_min)
+
+            # apply acceleration limit
+            speed_chg_max = self.vel_accel * dt
+            speed = min(speed, self.vel_speed_last + speed_chg_max)
+            speed = max(speed, self.vel_speed_last - speed_chg_max)
+
+            # record speed for next iteration
+            self.vel_speed_last = speed
+
             # calculate yaw correction and final yaw movement
             yaw_correction = self.vel_xy_pid.get_pid(yaw_error, dt)
-            yaw_final = wrap_PI(self.balloon_heading + yaw_correction)
+            yaw_final = wrap_PI(self.search_balloon_heading + yaw_correction)
 
             # calculate pitch correction and final pitch movement
             pitch_correction = self.vel_z_pid.get_pid(pitch_error, dt)
-            pitch_final = wrap_PI(self.balloon_pitch + pitch_correction)
-
+            pitch_final = wrap_PI(self.search_balloon_pitch + pitch_correction)
+            
             # calculate velocity vector we wish to move in
             self.guided_target_vel = balloon_finder.get_ef_velocity_vector(pitch_final, yaw_final, speed)
 
