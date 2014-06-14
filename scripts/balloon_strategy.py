@@ -102,8 +102,9 @@ class BalloonStrategy(object):
         # use the simulator to generate fake balloon images
         self.use_simulator = balloon_config.config.get_boolean('general','simulate',False)
 
+        # start background image grabber
         if not self.use_simulator:
-            self.camera = balloon_video.get_camera()
+            balloon_video.start_background_capture()
         self.writer = balloon_video.open_video_writer()
 
         # horizontal velocity pid controller.  maximum effect is 10 degree lean
@@ -291,10 +292,10 @@ class BalloonStrategy(object):
             veh_pos = PositionVector.get_from_location(self.vehicle.location)
             frame = balloon_sim.get_simulated_frame(veh_pos, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw)
         else:
-            _, frame = self.camera.read()
+            frame = balloon_video.get_image()
         return frame
 
-    # get image from camera and look for balloon, results are held in the following variables:
+    # get image from balloon_video class and look for balloon, results are held in the following variables:
     #    self.balloon_found : set to True if balloon is found, False otherwise
     #    self.balloon_pitch : earth frame pitch (in radians) from vehicle to balloon (i.e. takes account of vehicle attitude)
     #    self.balloon_heading : earth frame heading (in radians) from vehicle to balloon
@@ -484,13 +485,13 @@ class BalloonStrategy(object):
 
             # only process images once home has been initialised
             if self.check_home():
-    
+
                 # check if we are controlling the vehicle
                 self.check_status()
 
                 # look for balloon in image
                 self.analyze_image()
-    
+
                 # search or move towards balloon
                 if self.searching:
                     # search for balloon
@@ -498,11 +499,12 @@ class BalloonStrategy(object):
                 else:
                     # move towards balloon
                     self.move_to_balloon()
-    
+
             # Don't suck up too much CPU, only process a new image occasionally
             time.sleep(0.05)
 
-        self.camera.release()
+        if not self.use_simulator:
+            balloon_video.stop_background_capture()
 
     # complete - balloon strategy has somehow completed so return control to the autopilot
     def complete(self):
