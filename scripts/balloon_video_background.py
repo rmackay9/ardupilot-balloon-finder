@@ -128,8 +128,8 @@ class BalloonVideoBackground:
         self.stop()
 
 # create a single global object
-balloon_video_background = BalloonVideoBackground()
+balloon_vid_back = BalloonVideoBackground()
 
 # run main as test
 if __name__ == '__main__':
-    balloon_video_background.main()
+    balloon_vid_back.main()
