@@ -31,6 +31,10 @@ class BalloonVideo:
         # define video output filename
         self.video_filename = balloon_config.config.get_string('camera','video_output_file','find_balloon.avi')
 
+    # __str__ - print position vector as string
+    def __str__(self):
+        return "BalloonVideo Object W:%d H:%d" % (self.img_width, self.img_height)
+
     # get_camera - initialises camera and returns VideoCapture object 
     def get_camera(self):
         # setup video capture
