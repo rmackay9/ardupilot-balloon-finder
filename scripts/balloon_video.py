@@ -9,7 +9,9 @@ Image size is held in the balloon_finder.cnf
 """
 
 import sys
+import time
 import math
+from multiprocessing import Process, Pipe
 import cv2
 import balloon_config
 
@@ -30,6 +32,11 @@ class BalloonVideo:
 
         # define video output filename
         self.video_filename = balloon_config.config.get_string('camera','video_output_file','find_balloon.avi')
+
+        # background image processing variables
+        self.proc = None            # background process object
+        self.parent_conn = None     # parent end of communicatoin pipe
+        self.img_counter = 0        # num images requested so far
 
     # __str__ - print position vector as string
     def __str__(self):
@@ -76,10 +83,106 @@ class BalloonVideo:
     def angle_to_pixels_y(self, angle):
         return int(angle * self.img_height / math.radians(self.cam_vfov))
 
+    #
+    # background image processing routines
+    #
+
+    # image_capture_background - captures all images from the camera in the background and returning the latest image via the pipe when the parent requests it
+    def image_capture_background(self, imgcap_connection):
+        # exit immediately if imgcap_connection is invalid
+        if imgcap_connection is None:
+            print "image_capture failed because pipe is uninitialised"
+            return
+
+        # open the camera
+        camera = self.get_camera()
+
+        # clear latest image
+        latest_image = None
+
+        while True:
+            # constantly get the image from the webcam
+            success_flag, image=camera.read()
+
+            # if successful overwrite our latest image
+            if success_flag:
+                latest_image = image
+
+            # check if the parent wants the image
+            if imgcap_connection.poll():
+                recv_obj = imgcap_connection.recv()
+                # if -1 is received we exit
+                if recv_obj == -1:
+                    break
+
+                # otherwise we return the latest image
+                imgcap_connection.send(latest_image)
+
+        # release camera when exiting
+        camera.release()
+
+    # start_background_capture - starts background image capture
+    def start_background_capture(self):
+        # create pipe
+        self.parent_conn, imgcap_conn = Pipe()
+
+        # create and start the sub process and pass it it's end of the pipe
+        self.proc = Process(target=self.image_capture_background, args=(imgcap_conn,))
+        self.proc.start()
+
+    def stop_background_capture(self):
+        # send exit command to image capture process
+        self.parent_conn.send(-1)
+
+        # join process
+        self.proc.join()
+
+    # get_image - returns latest image from the camera captured from the background process
+    def get_image(self):
+        # return immediately if pipe is not initialised
+        if self.parent_conn == None:
+            return None
+
+        # send request to image capture for image
+        self.parent_conn.send(self.img_counter)
+
+        # increment counter for next interation
+        self.img_counter = self.img_counter + 1
+
+        # wait endlessly until image is returned
+        recv_img = self.parent_conn.recv()
+
+        # return image to caller
+        return recv_img
+
     # main - tests BalloonVideo class
     def main(self):
-        print "got here!"
-        camera = self.get_camera()
+
+        # start background process
+        self.start_background_capture()
+
+        while True:
+            # send request to image capture for image
+            img = self.get_image()
+    
+            # check image is valid
+            if not img is None:
+                # display image
+                cv2.imshow ('image_display', img)
+            else:
+                print "no image"
+    
+            # check for ESC key being pressed
+            k = cv2.waitKey(5) & 0xFF
+            if k == 27:
+                break
+    
+            # take a rest for a bit
+            time.sleep(0.1)
+
+        # send exit command to image capture process
+        self.stop_background_capture()
+
         print "a2p 10 = %f" % self.angle_to_pixels_x(10)
         print "p2a 10 = %f" % self.pixels_to_angle_x(10)
 
