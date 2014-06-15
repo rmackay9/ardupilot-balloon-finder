@@ -55,9 +55,9 @@ class AttitudeHistory(object):
 
     # get_attitude - get attitude at given time 
     def get_attitude(self, desired_time_in_sec):
-        # return immediately if dictionary is empty
+        # return current attitude immediately if dictionary is empty
         if len(self.att_dict) == 0:
-            return None
+            return self.vehicle.attitude
 
         # get times from dict
         keys = sorted(self.att_dict.keys())
