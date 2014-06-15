@@ -55,7 +55,7 @@ class BalloonStrategy(object):
 
         # historical attitude
         self.att_hist = AttitudeHistory(self.vehicle, 2.0)
-        self.attitude_delay = 0.25              # expected delay between image and attitude
+        self.attitude_delay = 0.0               # expected delay between image and attitude
 
         # search variables
         self.searching = False
