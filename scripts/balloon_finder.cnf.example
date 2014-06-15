@@ -18,6 +18,7 @@ radius_m = 0.5
 debug = True
 simulate = False
 SEARCH_YAW_SPEED = 5.0
+SEARCH_TARGET_DELAY = 2.0
 VEL_XY_P = 1.0
 VEL_XY_I = 0.0
 VEL_XY_D = 0.0
