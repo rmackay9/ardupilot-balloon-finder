@@ -67,6 +67,7 @@ class BalloonStrategy(object):
         self.search_balloon_heading = None      # earth-frame heading (in radians) from vehicle to closest balloon
         self.search_balloon_pitch = None        # earth-frame pitch (in radians) from vehicle to closest balloon 
         self.search_balloon_distance = None     # distance (in meters) from vehicle to closest balloon
+        self.search_yaw_speed = balloon_config.config.get_float('general','SEARCH_YAW_SPEED',5.0) 
 
         # vehicle mission
         self.mission_cmds = None
@@ -113,14 +114,14 @@ class BalloonStrategy(object):
         self.writer = balloon_video.open_video_writer()
 
         # horizontal velocity pid controller.  maximum effect is 10 degree lean
-        xy_p = balloon_config.config.get_float('general','VEL_XY_P',2.0)
+        xy_p = balloon_config.config.get_float('general','VEL_XY_P',1.0)
         xy_i = balloon_config.config.get_float('general','VEL_XY_I',0.0)
         xy_d = balloon_config.config.get_float('general','VEL_XY_D',0.0)
         xy_imax = balloon_config.config.get_float('general','VEL_XY_IMAX',10.0)
         self.vel_xy_pid = pid.pid(xy_p, xy_i, xy_d, math.radians(xy_imax))
 
         # vertical velocity pid controller.  maximum effect is 10 degree lean
-        z_p = balloon_config.config.get_float('general','VEL_Z_P',1.0)
+        z_p = balloon_config.config.get_float('general','VEL_Z_P',1.7)
         z_i = balloon_config.config.get_float('general','VEL_Z_I',0.0)
         z_d = balloon_config.config.get_float('general','VEL_Z_D',0.0)
         z_imax = balloon_config.config.get_float('general','VEL_IMAX',10.0)
@@ -389,10 +390,10 @@ class BalloonStrategy(object):
                         print "Balloon Ignored Alt:%f Dist:%f" % (self.balloon_pos.z, self.balloon_distance)
 
             # check yaw is close to target
-            if math.fabs(wrap_PI(self.vehicle.attitude.yaw - self.search_target_heading)) < math.radians(20):
+            if math.fabs(wrap_PI(self.vehicle.attitude.yaw - self.search_target_heading)) < math.radians(self.search_yaw_speed * 2.0):
                 # increase yaw target
-                self.search_target_heading = self.search_target_heading - math.radians(10)
-                self.search_total_angle = self.search_total_angle + math.radians(10)
+                self.search_target_heading = self.search_target_heading - math.radians(self.search_yaw_speed)
+                self.search_total_angle = self.search_total_angle + math.radians(self.search_yaw_speed)
                 # send yaw heading
                 self.condition_yaw(math.degrees(self.search_target_heading))
 
