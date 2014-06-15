@@ -9,6 +9,7 @@ from position_vector import PositionVector
 from find_balloon import balloon_finder
 from fake_balloon import balloon_sim
 import pid
+from attitude_history import AttitudeHistory
 
 """
 This is an early guess at a top level controller that uses the DroneAPI and OpenCV magic
@@ -51,6 +52,10 @@ class BalloonStrategy(object):
         self.home_initialised = False
         # timer to intermittently check for home position
         self.last_home_check = time.time()
+
+        # historical attitude
+        self.att_hist = AttitudeHistory(self.vehicle, 2.0)
+        self.attitude_delay = 0.25              # expected delay between image and attitude
 
         # search variables
         self.searching = False
@@ -306,9 +311,14 @@ class BalloonStrategy(object):
         # record time
         now = time.time()
 
-        # capture vehicle position and attitude
+        # capture vehicle position
         self.vehicle_pos = PositionVector.get_from_location(self.vehicle.location)
-        vehicle_attitude = self.vehicle.attitude
+
+        # capture vehicle attitude in buffer
+        self.att_hist.update()
+
+        # get delayed attitude from buffer
+        veh_att_delayed = self.att_hist.get_attitude(now - self.attitude_delay)
 
         # get new image from camera
         f = self.get_frame()
@@ -317,14 +327,14 @@ class BalloonStrategy(object):
         self.balloon_found, xpos, ypos, size = balloon_finder.analyse_frame(f)
 
         # add artificial horizon
-        balloon_finder.add_artificial_horizon(f, vehicle_attitude.roll, vehicle_attitude.pitch)
+        balloon_finder.add_artificial_horizon(f, veh_att_delayed.roll, veh_att_delayed.pitch)
 
         if self.balloon_found:
             # record time balloon was found
             self.last_spotted_time = now
         
             # convert x, y position to pitch and yaw direction (in radians)
-            self.balloon_pitch, self.balloon_heading = balloon_finder.pixels_to_direction(xpos, ypos, vehicle_attitude.roll, vehicle_attitude.pitch, vehicle_attitude.yaw)
+            self.balloon_pitch, self.balloon_heading = balloon_finder.pixels_to_direction(xpos, ypos, veh_att_delayed.roll, veh_att_delayed.pitch, veh_att_delayed.yaw)
             self.balloon_pitch = math.radians(self.balloon_pitch)
             self.balloon_heading = math.radians(self.balloon_heading)
 
