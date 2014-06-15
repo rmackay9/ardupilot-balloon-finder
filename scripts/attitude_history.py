@@ -22,7 +22,7 @@ class AttitudeHistory(object):
 
     # __str__ - print contents of dictionary
     def __str__(self):
-        return "AttHist MaxDelay:%d \nAttDict:%s\nLocDict:%s" % (self.max_delay, self.att_dict, self.loc_dict)
+        return "AttHist MaxDelay:%d \nAttDict:%s" % (self.max_delay, self.att_dict)
 
     # update - captures an attitude from the drone api and stores in a dictionary
     def update(self):
@@ -44,13 +44,6 @@ class AttitudeHistory(object):
             self.att_dict[now] = self.vehicle.attitude
             # debug
             #print "Add Att: t:%f r:%f p:%f y:%f" % (now, self.vehicle.attitude.roll, self.vehicle.attitude.pitch, self.vehicle.attitude.yaw) 
-
-        # check location is initialised
-        if not self.vehicle.location is None:
-            # add location to dictionary
-            self.loc_dict[now] = self.vehicle.location
-            # debug
-            #print "Add Loc: t:%f lat:%f lon:%f alt:%f" % (now, self.vehicle.location.lat, self.vehicle.location.lon, self.vehicle.location.alt)
 
         # clear out any old entries
         for t in self.att_dict.keys():
