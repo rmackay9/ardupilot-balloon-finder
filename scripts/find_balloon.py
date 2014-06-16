@@ -24,17 +24,17 @@ from position_vector import PositionVector
 class BalloonFinder(object):
 
     # default colours for red balloon
-    default_h_low = 154
-    default_h_high = 195
-    default_s_low = 75
+    default_h_low = 160
+    default_h_high = 180
+    default_s_low = 120
     default_s_high = 255
-    default_v_low = 63
-    default_v_high = 191
+    default_v_low = 210
+    default_v_high = 255
     
     def __init__(self):
 
         # define expected balloon radius in meters
-        self.balloon_radius_expected = balloon_config.config.get_float('balloon','radius_m',0.5)
+        self.balloon_radius_expected = balloon_config.config.get_float('balloon','radius_m',0.3)
 
         # colour filters for balloon
         self.filter_low = numpy.array([balloon_config.config.get_integer('balloon','h-low',BalloonFinder.default_h_low),

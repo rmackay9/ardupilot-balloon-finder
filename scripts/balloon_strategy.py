@@ -125,7 +125,7 @@ class BalloonStrategy(object):
         self.vel_xy_pid = pid.pid(xy_p, xy_i, xy_d, math.radians(xy_imax))
 
         # vertical velocity pid controller.  maximum effect is 10 degree lean
-        z_p = balloon_config.config.get_float('general','VEL_Z_P',1.7)
+        z_p = balloon_config.config.get_float('general','VEL_Z_P',2.5)
         z_i = balloon_config.config.get_float('general','VEL_Z_I',0.0)
         z_d = balloon_config.config.get_float('general','VEL_Z_D',0.0)
         z_imax = balloon_config.config.get_float('general','VEL_IMAX',10.0)
@@ -133,7 +133,7 @@ class BalloonStrategy(object):
 
         # velocity controller min and max speed
         self.vel_speed_min = balloon_config.config.get_float('general','VEL_SPEED_MIN',1.0)
-        self.vel_speed_max = balloon_config.config.get_float('general','VEL_SPEED_MAX',5.0)
+        self.vel_speed_max = balloon_config.config.get_float('general','VEL_SPEED_MAX',4.0)
         self.vel_speed_last = 0.0   # last recorded speed
         self.vel_accel = balloon_config.config.get_float('general','VEL_ACCEL', 0.5)    # maximum acceleration in m/s/s
         self.vel_dist_ratio = balloon_config.config.get_float('general','VEL_DIST_RATIO', 0.5) 
