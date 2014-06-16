@@ -113,7 +113,9 @@ class BalloonStrategy(object):
         # start background image grabber
         if not self.use_simulator:
             balloon_video.start_background_capture()
-        self.writer = balloon_video.open_video_writer()
+
+        # initialise video writer
+        self.writer = None
 
         # horizontal velocity pid controller.  maximum effect is 10 degree lean
         xy_p = balloon_config.config.get_float('general','VEL_XY_P',1.0)
@@ -198,6 +200,17 @@ class BalloonStrategy(object):
 
         # return whether home has been initialised or not
         return self.home_initialised
+
+    # checks if video output should be started
+    def check_video_out(self):
+
+        # return immediately if video has already been started
+        if not self.writer is None:
+            return
+
+        # start video once vehicle is armed
+        if self.vehicle.armed:
+            self.writer = balloon_video.open_video_writer()
 
     # check_status - poles vehicle' status to determine if we are in control of vehicle or not
     def check_status(self):
@@ -349,7 +362,8 @@ class BalloonStrategy(object):
             self.balloon_pos = balloon_finder.project_position(self.vehicle_pos, self.balloon_pitch, self.balloon_heading, self.balloon_distance)
 
         # save image for debugging later
-        self.writer.write(f)
+        if not self.writer is None:
+            self.writer.write(f)
 
     # start_search - start search for balloon
     def start_search(self):
@@ -533,6 +547,9 @@ class BalloonStrategy(object):
             # only process images once home has been initialised
             if self.check_home():
 
+                # start video if required
+                self.check_video_out()
+    
                 # check if we are controlling the vehicle
                 self.check_status()
 
