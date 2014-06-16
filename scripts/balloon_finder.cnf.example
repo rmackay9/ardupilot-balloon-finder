@@ -3,7 +3,7 @@ width = 640
 height = 480
 horizontal-fov = 70.42
 vertical-fov = 43.3
-video_output_file = find_balloon.avi
+video_output_file = ~/balloon-%%Y-%%m-%%d-%%H-%%M.avi
 
 [balloon]
 h-low = 154

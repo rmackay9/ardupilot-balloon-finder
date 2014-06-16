@@ -9,6 +9,7 @@ Image size is held in the balloon_finder.cnf
 """
 
 import sys
+from os.path import expanduser
 import time
 import math
 from multiprocessing import Process, Pipe
@@ -31,7 +32,9 @@ class BalloonVideo:
         self.cam_vfov = balloon_config.config.get_float('camera','vertical-fov',43.3)
 
         # define video output filename
-        self.video_filename = balloon_config.config.get_string('camera','video_output_file','find_balloon.avi')
+        self.video_filename = balloon_config.config.get_string('camera','video_output_file','~/balloon-%Y-%m-%d-%H-%M.avi')
+        self.video_filename = expanduser(self.video_filename)
+        self.video_filename = time.strftime(self.video_filename)
 
         # background image processing variables
         self.proc = None            # background process object
