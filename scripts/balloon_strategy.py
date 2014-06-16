@@ -64,7 +64,7 @@ class BalloonStrategy(object):
         self.search_heading_change = None       # heading change (in radians) performed so far during search
         self.search_balloon_pos = None          # position (as an offset from home) of closest balloon (so far) during search
         self.search_balloon_heading = None      # earth-frame heading (in radians) from vehicle to closest balloon
-        self.search_balloon_pitch = None        # earth-frame pitch (in radians) from vehicle to closest balloon 
+        self.search_balloon_pitch_top = None        # earth-frame pitch (in radians) from vehicle to closest balloon
         self.search_balloon_distance = None     # distance (in meters) from vehicle to closest balloon
         self.targeting_start_time = 0           # time vehicle first pointed towards final target (used with delay_time below)
         self.targeting_delay_time = balloon_config.config.get_float('general','SEARCH_TARGET_DELAY',2.0)    # time vehicle waits after pointing towards ballon and before heading towards it
@@ -85,6 +85,7 @@ class BalloonStrategy(object):
         # balloon direction and position estimate from latest call to analyse_image
         self.balloon_found = False
         self.balloon_pitch = None
+        self.balloon_pitch_top = None           # earth-frame pitch (in radians) from vehicle to top of closest balloon
         self.balloon_heading = None
         self.balloon_distance = None
         self.balloon_pos = None             # last estimated position as an offset from home
@@ -338,6 +339,7 @@ class BalloonStrategy(object):
             # convert x, y position to pitch and yaw direction (in radians)
             self.balloon_pitch, self.balloon_heading = balloon_finder.pixels_to_direction(xpos, ypos, veh_att_delayed.roll, veh_att_delayed.pitch, veh_att_delayed.yaw)
             self.balloon_pitch = math.radians(self.balloon_pitch)
+            self.balloon_pitch_top = self.balloon_pitch + balloon_video.pixels_to_angle_y(size)  # add balloon radius so we aim for top of balloon
             self.balloon_heading = math.radians(self.balloon_heading)
 
             # get distance
@@ -390,7 +392,7 @@ class BalloonStrategy(object):
                         # record this balloon as the closest
                         self.search_balloon_pos = self.balloon_pos
                         self.search_balloon_heading = self.balloon_heading
-                        self.search_balloon_pitch = self.balloon_pitch
+                        self.search_balloon_pitch_top = self.balloon_pitch_top  # we target top of balloon
                         self.search_balloon_distance = self.balloon_distance
                         print "Found Balloon at heading:%f Alt:%f Dist:%f" % (math.degrees(self.balloon_heading), self.balloon_pos.z, self.balloon_distance)
                     else:
@@ -432,7 +434,7 @@ class BalloonStrategy(object):
                         # balloon is within limits so reset balloon target
                         self.search_balloon_pos = self.balloon_pos
                         self.search_balloon_heading = self.balloon_heading
-                        self.search_balloon_pitch = self.balloon_pitch
+                        self.search_balloon_pitch_top = self.balloon_pitch_top
                         self.search_balloon_distance = self.balloon_distance
                         # move to final heading
                         self.search_target_heading = self.search_balloon_heading
@@ -478,7 +480,7 @@ class BalloonStrategy(object):
             yaw_error = wrap_PI(self.balloon_heading - self.search_balloon_heading)
 
             # calculate pitch vs ideal pitch angles.  This will cause to attempt to get to 5deg above balloon 
-            pitch_error = wrap_PI(self.balloon_pitch - self.vel_pitch_target)
+            pitch_error = wrap_PI(self.balloon_pitch_top - self.vel_pitch_target)
 
             # get time since last time velocity pid controller was run
             dt = self.vel_xy_pid.get_dt(2.0)
@@ -504,7 +506,7 @@ class BalloonStrategy(object):
 
             # calculate pitch correction and final pitch movement
             pitch_correction = self.vel_z_pid.get_pid(pitch_error, dt)
-            pitch_final = wrap_PI(self.search_balloon_pitch + pitch_correction)
+            pitch_final = wrap_PI(self.search_balloon_pitch_top + pitch_correction)
             
             # calculate velocity vector we wish to move in
             self.guided_target_vel = balloon_finder.get_ef_velocity_vector(pitch_final, yaw_final, speed)
