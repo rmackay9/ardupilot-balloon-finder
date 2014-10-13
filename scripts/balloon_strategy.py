@@ -269,16 +269,16 @@ class BalloonStrategy(object):
 
     # send_nav_velocity - send nav_velocity command to vehicle to request it fly in specified direction
     def send_nav_velocity(self, velocity_x, velocity_y, velocity_z):
-        # create the CONDITION_YAW command
-        msg = self.vehicle.message_factory.mission_item_encode(0, 0,  # target system, target component
-                                                     0,     # sequence
-                                                     mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, # frame
-                                                     91, # command id, replace with mavutil.mavlink.MAV_CMD_NAV_VELOCITY
-                                                     2, # current - set to 2 to make it a guided command
-                                                     0, # auto continue
-                                                     0,                         # frame (unused)
-                                                     0, 0, 0,                   # params 1 ~ 4 (unused)
-                                                     velocity_x, velocity_y, velocity_z) # params 5 ~ 7
+        # create the SET_POSITION_TARGET_LOCAL_NED command
+        msg = self.vehicle.message_factory.set_position_target_local_ned_encode(
+                                                     0,       # time_boot_ms (not used)
+                                                     0, 0,    # target system, target component
+                                                     mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
+                                                     0,       # type_mask (not used)
+                                                     0, 0, 0, # x, y, z positions (not used)
+                                                     velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
+                                                     0, 0, 0, # x, y, z acceleration (not used)
+                                                     0, 0)    # yaw, yaw_rate (not used) 
         # send command to vehicle
         self.vehicle.send_mavlink(msg)
         self.vehicle.flush()
