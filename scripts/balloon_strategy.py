@@ -240,8 +240,8 @@ class BalloonStrategy(object):
             active_command = self.vehicle.commands.next
             active_command_id = self.vehicle.commands[active_command].command
 
-            # ninety is the MAVLink id for Nav-Guided commands
-            if active_command_id == 90:
+            # ninety two is the MAVLink id for Nav-Guided-Enable commands
+            if active_command_id == 92:
                 if not self.controlling_vehicle:
                     self.controlling_vehicle = True
                     self.mission_alt_min = self.vehicle.commands[active_command].param2
