@@ -12,6 +12,7 @@ export HOME=/home/odroid
 PATH=$PATH:/bin:/sbin:/usr/bin:/usr/local/bin
 PATH=$PATH:$HOME/GitHub/ardupilot-balloon-finder
 PATH=$PATH:$HOME/GitHub/ardupilot-balloon-finder/scripts
+PATH=$PATH:$HOME/GitHub/ardupilot-balloon-finder/smart_camera
 export PATH
 echo "PATH:" $PATH
 
