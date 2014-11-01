@@ -55,3 +55,8 @@ docs/_build/
 
 # ardupilot-balloon-finder files to ignore
 balloon_finder.cnf
+smart_camera.cnf
+*.tlog
+*.raw
+*.parm
+*.avi
