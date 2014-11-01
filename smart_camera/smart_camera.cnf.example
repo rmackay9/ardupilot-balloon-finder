@@ -1,0 +1,9 @@
+[camera]
+#width = 640
+#height = 480
+#horizontal-fov = 70.42
+#vertical-fov = 43.3
+#video_output_file = ~/smartcamera-%%Y-%%m-%%d-%%H-%%M.avi
+
+[general]
+#debug = True
