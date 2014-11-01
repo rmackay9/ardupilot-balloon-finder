@@ -160,6 +160,6 @@ class SmartCamera(object):
         if not self.use_simulator:
             sc_video.stop_background_capture()
 
-sc_main = SmartCameraMain()
+sc_main = SmartCamera()
 sc_main.run()
 
