@@ -31,9 +31,10 @@ class SmartCamera(object):
         self.home_initialised = False
         # timer to intermittently check for home position
         self.last_home_check = time.time()
+        self.home_location = None
 
-        # vehicle position captured at time camera image was captured
-        self.vehicle_pos = None
+        # vehicle mission
+        self.mission_cmds = None
 
         # check if we should display debug messages
         self.debug = sc_config.config.get_boolean('general','debug',True)
@@ -83,14 +84,15 @@ class SmartCamera(object):
             # get the home lat and lon
             home_lat = self.mission_cmds[0].x
             home_lon = self.mission_cmds[0].y
+            home_alt = self.mission_cmds[0].z
 
             # sanity check the home position
-            if home_lat is None or home_lon is None:
+            if home_lat is None or home_lon is None or home_alt is None:
                 return False
 
             # sanity check again and set home position
             if home_lat <> 0 and home_lon <> 0:
-                PositionVector.set_home_location(Location(home_lat,home_lon,0))
+                self.home_location = Location(home_lat,home_lon,home_alt)
                 self.home_initialised = True
             else:
                 self.mission_cmds = None
