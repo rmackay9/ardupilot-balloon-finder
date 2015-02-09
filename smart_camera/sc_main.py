@@ -1,9 +1,11 @@
 import time
 import math
+import cv2
 from pymavlink import mavutil
 from droneapi.lib import VehicleMode, Location
 import sc_config
 from sc_video import sc_video
+from sc_webcam import SmartCameraWebCam
 
 """
 sc_main.py - runs top level smart camera function
@@ -19,13 +21,18 @@ To run this module:
 """
 
 class SmartCamera(object):
-    def __init__(self):
+    def __init__(self, use_api):
 
-        # First get an instance of the API endpoint (the connect via web case will be similar)
-        self.api = local_connect()
+        # if using droneapi connect to vehicle
+        if (use_api):
+            # First get an instance of the API endpoint (the connect via web case will be similar)
+            self.api = local_connect()
 
-        # Our vehicle (we assume the user is trying to control the virst vehicle attached to the GCS)
-        self.vehicle = self.api.get_vehicles()[0]
+            # Our vehicle (we assume the user is trying to control the virst vehicle attached to the GCS)
+            self.vehicle = self.api.get_vehicles()[0]
+        else:
+            self.api = None
+            self.vehicle = None
 
         # initialised flag
         self.home_initialised = False
@@ -39,11 +46,29 @@ class SmartCamera(object):
         # check if we should display debug messages
         self.debug = sc_config.config.get_boolean('general','debug',True)
 
-        # start background image grabber
-        sc_video.start_background_capture()
+        # register cameras
+        self.register_cameras();
 
         # initialise video writer
         self.writer = None
+
+    # register cameras - creates camera objects based on camera-type configuration
+    def register_cameras(self):
+
+        # initialise list
+        self.camera_list = []
+
+        #look for up to 2 cameras
+        for i in range(0,2):
+            config_group = "camera%d" % i
+            camera_type = sc_config.config.get_integer(config_group, 'type', 0) 
+            # webcam
+            if camera_type == 1:
+                new_camera = SmartCameraWebCam(i)
+                self.camera_list = self.camera_list + [new_camera]
+
+        # display number of cameras found
+        print "cameras found: %d" % len(self.camera_list)
 
     # fetch_mission - fetch mission from flight controller
     def fetch_mission(self):
@@ -123,10 +148,30 @@ class SmartCamera(object):
             self.fetch_mission()
             return
 
-    # get_frame - get a single frame from the camera or simulator
-    def get_frame(self):
-        frame = sc_video.get_image()
-        return frame
+    # take_picture_all - ask all cameras to take a picture
+    def take_picture_all(self):
+        for cam in self.camera_list:
+            cam.take_picture()
+
+    # saves_picture_all - ask all cameras for their latest image and saves to files
+    def save_picture_all(self):
+        cam_num = 0
+        for cam in self.camera_list:
+            img = cam.get_latest_image()
+            # display image
+            window_name = "cam%d" % cam_num
+            cv2.imshow (window_name, img)
+            # write to file
+            #imgfilename = "C:\Users\rmackay9\Documents\GitHub\ardupilot-balloon-finder\smart_camera\img%d-%d.jpg" % (cam_num,cam.get_image_counter())
+            imgfilename = "C:\Temp\img%d-%d.jpg" % (cam_num,cam.get_image_counter())
+            print imgfilename
+            cv2.imwrite(imgfilename, img)
+            
+            # check for ESC key being pressed
+            k = cv2.waitKey(5) & 0xFF
+            if k == 27:
+                break
+            cam_num = cam_num + 1
 
     # get image from sc_video class and write to file
     def analyze_image(self):
@@ -142,6 +187,17 @@ class SmartCamera(object):
             self.writer.write(f)
 
     def run(self):
+        while True:
+            # ask all cameras to take a picture
+            self.take_picture_all()
+
+            # store images to disk
+            self.save_picture_all()
+
+            # Don't suck up too much CPU, only process a new image occasionally
+            time.sleep(2.0)
+
+        '''
         while not self.api.exit:
 
             # only process images once home has been initialised
@@ -153,15 +209,22 @@ class SmartCamera(object):
                 # check if we are controlling the vehicle
                 self.check_status()
 
-                # analyze and process image
-                self.analyze_image()
+                # ask all cameras to take a picture
+                self.take_picture_all()
 
             # Don't suck up too much CPU, only process a new image occasionally
-            time.sleep(0.05)
+            time.sleep(2.0)
 
         if not self.use_simulator:
             sc_video.stop_background_capture()
+        '''
 
-sc_main = SmartCamera()
+# initialise depending upon whether running from command line or as part of mavproxy
+if __name__ == "__main__":
+    sc_main = SmartCamera(False)
+else:
+    sc_main = SmartCamera(True)
+
+# run the smart camera
 sc_main.run()
 
