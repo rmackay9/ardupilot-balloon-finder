@@ -17,6 +17,9 @@ class SmartCameraConfig(object):
         # default config file
         self.config_file = expanduser("~/smart_camera.cnf")
 
+        # print config file location
+        print "config file: %s" % self.config_file
+
         # create the global parser object
         self.parser = ConfigParser.SafeConfigParser()
 
