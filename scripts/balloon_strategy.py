@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(1, os.getcwd())
+
 import time
 import math
 from pymavlink import mavutil
@@ -34,9 +38,11 @@ To run this module:
 * module load api
 * api start balloon-strategy.py
 
-(Once tested we can put these directives into a mavinit.scr file and mavproxy will load/run
-    this code automatically)
+or
 
+* execute linux_run_strategy.sh
+
+Then arm it an takeoff as in mavproxy_sequence.txt
 """
 
 class BalloonStrategy(object):
@@ -274,7 +280,7 @@ class BalloonStrategy(object):
                                                      0,       # time_boot_ms (not used)
                                                      0, 0,    # target system, target component
                                                      mavutil.mavlink.MAV_FRAME_LOCAL_NED, # frame
-                                                     0,       # type_mask (not used)
+                                                     0b0000111111000111, # type_mask (only speeds enabled)
                                                      0, 0, 0, # x, y, z positions (not used)
                                                      velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
                                                      0, 0, 0, # x, y, z acceleration (not used)

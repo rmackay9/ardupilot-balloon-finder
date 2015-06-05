@@ -1,0 +1,5 @@
+mode loiter
+arm throttle
+rc 3 1800
+rc 3 1500
+mode guided
