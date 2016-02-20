@@ -170,7 +170,8 @@ class BalloonFinder(object):
     def main(self):
         web = Webserver(balloon_config.config.parser, (lambda : self.frame))
 
-        camera = balloon_video.get_camera()
+        # initialise camera
+        balloon_video.init_camera()
         video_writer = balloon_video.open_video_writer()
 
         # get start time
@@ -180,7 +181,7 @@ class BalloonFinder(object):
         while(time.time() - start_time < 20):
 
             # Take each frame
-            _, frame = camera.read()
+            frame = balloon_video.capture_image()
             self.frame = frame
 
             # is there the x & y position in frame of the largest balloon
@@ -204,7 +205,7 @@ class BalloonFinder(object):
         cv2.destroyAllWindows()
 
         # release camera
-        camera.release()
+        balloon_video.close_camera()
 
 # create the global balloon_finder object
 balloon_finder = BalloonFinder()
