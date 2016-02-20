@@ -5,13 +5,13 @@ AttitudeHistory class : provides delayed attitude and location information
 import math
 import time
 from pymavlink import mavutil
-from droneapi.lib import VehicleMode, Location, Attitude
+from dronekit import VehicleMode, Attitude
 from balloon_utils import wrap_PI
 
 class AttitudeHistory(object):
 
-    def __init__(self, droneapi_vehicle, max_delay):
-        self.vehicle = droneapi_vehicle # reference to drone api's vehicle for retrieving attitude and location
+    def __init__(self, dronekit_vehicle, max_delay):
+        self.vehicle = dronekit_vehicle # reference to drone api's vehicle for retrieving attitude and location
         self.max_delay = max_delay      # maximum expected delay in seconds
         self.last_update = 0            # system time of last update call
         self.att_dict = dict()          # initialise attitude dictionary

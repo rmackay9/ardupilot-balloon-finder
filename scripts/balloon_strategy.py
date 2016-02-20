@@ -5,7 +5,7 @@ sys.path.insert(1, os.getcwd())
 import time
 import math
 from pymavlink import mavutil
-from droneapi.lib import VehicleMode, Location
+from dronekit import VehicleMode, LocationGlobal
 import balloon_config
 from balloon_video import balloon_video
 from balloon_utils import get_distance_from_pixels, wrap_PI
@@ -196,7 +196,7 @@ class BalloonStrategy(object):
 
             # sanity check again and set home position
             if home_lat <> 0 and home_lon <> 0:
-                PositionVector.set_home_location(Location(home_lat,home_lon,0))
+                PositionVector.set_home_location(LocationGlobal(home_lat,home_lon,0))
                 self.home_initialised = True
             else:
                 self.mission_cmds = None

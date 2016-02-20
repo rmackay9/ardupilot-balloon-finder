@@ -1,5 +1,4 @@
 import math
-from droneapi.lib import Location
 from balloon_video import balloon_video
 
 """

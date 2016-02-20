@@ -15,7 +15,7 @@ from time import time
 import math
 import cv2
 import numpy
-from droneapi.lib import Location
+from dronekit import LocationGlobal
 import balloon_config
 from balloon_video import balloon_video
 import balloon_utils
@@ -28,7 +28,7 @@ class BalloonSimulator(object):
     def __init__(self):
 
         # read fake balloon location from config file
-        self.fake_balloon_location = Location(balloon_config.config.get_float('fake-balloon', 'lat',-35.363274),
+        self.fake_balloon_location = LocationGlobal(balloon_config.config.get_float('fake-balloon', 'lat',-35.363274),
                                               balloon_config.config.get_float('fake-balloon', 'lon',149.164630),
                                               balloon_config.config.get_float('fake-balloon', 'alt',15))
 
@@ -123,7 +123,7 @@ class BalloonSimulator(object):
     def main(self):
 
         # set home to tridge's home field (absolute alt = 270)
-        PositionVector.set_home_location(Location(-35.362938,149.165085,0))
+        PositionVector.set_home_location(LocationGlobal(-35.362938,149.165085,0))
 
         # calculate balloon position
         fake_balloon_pos = PositionVector.get_from_location(self.fake_balloon_location)

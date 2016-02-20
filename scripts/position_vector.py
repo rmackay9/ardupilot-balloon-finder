@@ -7,10 +7,10 @@ PositionVector class : holds a 3 axis position offset from home in meters in NEU
 """
 
 import math
-from droneapi.lib import Location
+from dronekit import LocationGlobal
 
 # global variables used by position vector class
-posvec_home_location = Location(0,0,0)
+posvec_home_location = LocationGlobal(0,0,0)
 posvec_lon_scale = 1.0          # scaling used to account for shrinking distance between longitude lines as we move away from equator
 posvec_latlon_to_m = 111319.5   # converts lat/lon to meters
 
@@ -54,7 +54,7 @@ class PositionVector(object):
     def get_location(self):
         dlat = self.x / posvec_latlon_to_m
         dlon = self.y / (posvec_latlon_to_m * posvec_lon_scale)
-        return Location(posvec_home_location.lat + dlat,posvec_home_location.lon + dlon,posvec_home_location.alt + self.z)
+        return LocationGlobal(posvec_home_location.lat + dlat,posvec_home_location.lon + dlon,posvec_home_location.alt + self.z)
 
     # set_from_location - sets x,y,z offsets given a location object (i.e. lat, lon and alt)
     def set_from_location(self, location):
@@ -126,7 +126,7 @@ class PositionVector(object):
     # main - used to test the class
     def main(self):
         # set home position - to tridge's home field (this is just for testing anyway)
-        PositionVector.set_home_location(Location(-35.362938,149.165085,0))
+        PositionVector.set_home_location(LocationGlobal(-35.362938,149.165085,0))
         print "Home %s" % PositionVector.get_home_location()
         home_pos = PositionVector(0,0,0)
         print "Home %s" % home_pos
