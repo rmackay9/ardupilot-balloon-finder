@@ -55,7 +55,7 @@ class ColourFinder:
     def run(self):
 
         # initialise video capture
-        camera = balloon_video.get_camera()
+        balloon_video.init_camera()
 
         # create trackbars for color change
         cv2.namedWindow('Colour Filters')
@@ -69,7 +69,7 @@ class ColourFinder:
 
         while(True):
             # get a frame
-            _, frame = camera.read()
+            frame = balloon_video.capture_image()
         
             # Convert BGR to HSV
             hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -108,6 +108,9 @@ class ColourFinder:
             k = cv2.waitKey(5) & 0xFF
             if k == 27:
                 break
+
+        # close camera
+        frame = balloon_video.close_camera()
 
         # close all windows
         cv2.destroyAllWindows()
