@@ -1,3 +1,7 @@
+[dronekit]
+#connection_string = "/dev/ttyUSB0"
+#baud = 921600
+
 [camera]
 ## set type to 0 for webcam, 1 for RPi camera ##
 #type = 0
