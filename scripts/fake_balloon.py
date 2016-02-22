@@ -39,14 +39,14 @@ class BalloonSimulator(object):
 
         # convert colour to BGR palette
         fake_balloon_colour_bgr = cv2.cvtColor(numpy.uint8([[[h,s,v]]]),cv2.COLOR_HSV2BGR)
-        self.fake_balloon_colour_bgr_scalar = cv2.cv.Scalar(fake_balloon_colour_bgr.item(0), fake_balloon_colour_bgr.item(1), fake_balloon_colour_bgr.item(2))
+        self.fake_balloon_colour_bgr_scalar = [fake_balloon_colour_bgr.item(0), fake_balloon_colour_bgr.item(1), fake_balloon_colour_bgr.item(2)]
 
         # fake balloon is same radius as actual balloon
         self.fake_balloon_radius = balloon_finder.balloon_radius_expected
 
         # background sky and ground colours
         self.background_sky_colour_bgr = (232, 228, 227)
-        self.background_ground_colour_bgr_scalar = cv2.cv.Scalar(87, 145, 158)
+        self.background_ground_colour_bgr_scalar = [87, 145, 158]
 
         # last iterations balloon radius
         self.last_balloon_radius = 0
