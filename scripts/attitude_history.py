@@ -171,11 +171,9 @@ if __name__ == "__main__":
 else:
     # for testing in the simulator
 
-    # get drone api
-    api = local_connect()
-
-    # Our vehicle (we assume the user is trying to control the first vehicle attached to the GCS)
-    vehicle = api.get_vehicles()[0]
+    connection_str = balloon_config.config.get_string('dronekit','connection_string','/dev/ttyUSB0') 
+    connection_baud = balloon_config.config.get_integer('dronekit','baud',921600)
+    vehicle = dronekit.connect(connection_str, connection_baud)
 
     # create test attitude history class with maximum 2 second delay
     test_atthist = AttitudeHistory(vehicle, 2.0)
