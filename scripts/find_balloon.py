@@ -84,7 +84,7 @@ class BalloonFinder(object):
         blob_params.filterByArea = False
         #blob_params.minArea = 20
         #blob_params.maxArea = 500
-        blob_detector = cv2.SimpleBlobDetector(blob_params)
+        blob_detector = cv2.SimpleBlobDetector_create(blob_params)
         keypts = blob_detector.detect(dilate_img)
     
         # draw centers of all keypoints in new image
