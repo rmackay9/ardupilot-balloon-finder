@@ -114,9 +114,12 @@ class BalloonVideo:
     def open_video_writer(self):
         # Define the codec and create VideoWriter object
         # Note: setting ex to -1 will display pop-up requesting user choose the encoder
-        ex = int(cv2.cv.CV_FOURCC('M','J','P','G'))
+        ex = cv2.VideoWriter_fourcc('M','J','P','G')
         self.video_writer = cv2.VideoWriter(self.video_filename, ex, 25, (self.img_width,self.img_height))
-    
+        if not self.video_writer is None:
+            print "started recording video to %s" % self.video_filename
+        else:
+            print "failed to start recording video to %s" % self.video_filename
         return self.video_writer
 
     # pixels_to_angle_x - converts a number of pixels into an angle in radians 
