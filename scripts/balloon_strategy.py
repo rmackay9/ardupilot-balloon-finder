@@ -239,11 +239,13 @@ class BalloonStrategy(object):
         if self.vehicle.mode.name == "GUIDED":
             if not self.controlling_vehicle:
                 self.controlling_vehicle = True
+                print "taking control of vehicle in GUIDED"
                 # clear out any limits on balloon position
                 self.mission_alt_min = 1
                 self.mission_alt_max = 0
                 self.mission_distance_max = 50
                 # start search for balloon
+                print "starting search alt_min:%f alt_max:%f dist_max:%f" % (self.mission_alt_min, self.mission_alt_max, self.mission_distance_max)
                 self.start_search()
             return
 
@@ -264,14 +266,18 @@ class BalloonStrategy(object):
             if active_command_id == 92:
                 if not self.controlling_vehicle:
                     self.controlling_vehicle = True
+                    print "taking control of vehicle in AUTO"
                     self.mission_alt_min = self.vehicle.commands[active_command].param2
                     self.mission_alt_max = self.vehicle.commands[active_command].param3
                     self.mission_distance_max = self.vehicle.commands[active_command].param4
+                    print "starting search alt_min:%f alt_max:%f dist_max:%f" % (self.mission_alt_min, self.mission_alt_max, self.mission_distance_max)
                     self.start_search()
                 return    
     
         # if we got here then we are not in control
-        self.controlling_vehicle = False
+        if self.controlling_vehicle:
+            self.controlling_vehicle = False
+            print "giving up control of vehicle in %s" % self.vehicle.mode.name 
 
     # condition_yaw - send condition_yaw mavlink command to vehicle so it points at specified heading (in degrees)
     def condition_yaw(self, heading):
