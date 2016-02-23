@@ -147,6 +147,10 @@ class BalloonStrategy(object):
         # velocity controller update rate
         self.vel_update_rate = balloon_config.config.get_float('general','VEL_UPDATE_RATE_SEC',0.2)
 
+        # stats
+        self.num_frames_analysed = 0
+        self.stats_start_time = 0
+
     # connect to vehicle with dronekit
     def get_vehicle_with_dronekit(self):
         connection_str = balloon_config.config.get_string('dronekit','connection_string','/dev/ttyUSB0') 
@@ -391,6 +395,11 @@ class BalloonStrategy(object):
         if not self.writer is None:
             self.writer.write(f)
 
+        # increment frames analysed for stats
+        self.num_frames_analysed += 1
+        if self.stats_start_time == 0:
+            self.stats_start_time = time.time()
+
     # start_search - start search for balloon
     def start_search(self):
         # exit immediately if we are not controlling the vehicle
@@ -567,6 +576,23 @@ class BalloonStrategy(object):
         # FIXME - check if vehicle altitude is too low
         # FIXME - check if we are too far from the desired flightplan
 
+    def output_frame_rate_stats(self):
+        # get current time
+        now = time.time()
+
+        # output stats each 10seconds
+        time_diff = now - self.stats_start_time 
+        if time_diff < 10 or time_diff <= 0:
+            return
+
+        # output frame rate
+        frame_rate = self.num_frames_analysed / time_diff
+        print "FrameRate: %f (%d frames in %f seconds)" % (frame_rate, self.num_frames_analysed, time_diff)
+
+        # reset stats
+        self.num_frames_analysed = 0
+        self.stats_start_time = now
+
     def run(self):
         while True:
 
@@ -589,6 +615,9 @@ class BalloonStrategy(object):
                 else:
                     # move towards balloon
                     self.move_to_balloon()
+
+                # output stats
+                self.output_frame_rate_stats()
 
             # Don't suck up too much CPU, only process a new image occasionally
             time.sleep(0.05)
